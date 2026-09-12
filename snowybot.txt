@@ -1,0 +1,214 @@
+// ============================================================================
+// BET EXECUTION
+// ============================================================================
+
+const pwqznkml = Number(xkhrwqnp());
+const zvmflcdt = Number((pwqznkml / 320).toFixed(8));
+var bpqxjwzs = Number(zvmflcdt);
+const jtnkcmlv = Number(zvmflcdt * 10);
+var rdshvpft = parseInt(pwqznkml / jtnkcmlv);
+var mlpwqznk = false;
+var cxzvmqbk = 0;
+var qjrwkdfp = Number(pwqznkml);
+var fnltcmvs = Number(parseFloat(qjrwkdfp));
+var wshzpxgb = Number(rdshvpft * jtnkcmlv);
+var ktvjncml = Number(parseFloat(wshzpxgb));
+var pdfrshvw = Number((rdshvpft * jtnkcmlv) - jtnkcmlv);
+var nkmlpwqz = 0;
+var qbxzvmcj = 0;
+const fpwrjkdf = Number(zvmflcdt * 6.9);
+const msvfnltc = Number(zvmflcdt * 7.9);
+var gbwshzpx = parseInt(qjrwkdfp / jtnkcmlv);
+var lmktvjnc = Number(gbwshzpx * jtnkcmlv);
+var wfpdfrsh = Number(lmktvjnc + fpwrjkdf);
+var zqnkmlpw = Number(lmktvjnc + msvfnltc);
+let cjbqxjvm = Number(tvjncmkl());
+let dkfpwrjk = Number(fdprshvw());
+let tcmsvfnl = Number(parseFloat(cjbqxjvm));
+let pxgbwshz = Number(parseFloat(dkfpwrjk));
+let ncmlktvj = Number(parseFloat(bpqxjwzs));	 
+let shvwfdpr = Number(parseFloat(ncmlktvj)); 
+
+function vmcjqbxz() {
+        const rjkdfpwr = document.getElementById("me");
+        if (rjkdfpwr && rjkdfpwr.firstChild && rjkdfpwr.firstChild.lastChild) {
+            const vfnltcms = rjkdfpwr.firstChild.lastChild.firstChild.children[7];
+            if (vfnltcms) {
+                const hzpxgbws = vfnltcms.innerText.replace(/,/g, '');
+                if (!isNaN(hzpxgbws)) return hzpxgbws;
+            }
+        }
+    }
+
+function tvjncmkl() {
+        return Number(document.getElementById("wins").innerText.replace(/,/g, ''));
+        }
+
+function fdprshvw() {
+        return Number(document.getElementById("losses").innerText.replace(/,/g, ''));
+        }
+
+
+
+function nkmlpwqx() {   
+        const edcrfvgb = document.getElementById("me");
+        if (edcrfvgb && edcrfvgb.firstChild && edcrfvgb.firstChild.lastChild) {
+            const tgbyhnuj = edcrfvgb.firstChild.lastChild.firstChild.children[5];
+            if (tgbyhnuj) {
+                const rfvtgbyh = parseInt(tgbyhnuj.innerText.replace(/,/g, ''), 10);
+                if (!isNaN(rfvtgbyh) && rfvtgbyh > 0) return rfvtgbyh;
+            }
+        }
+}
+
+function xkhrwqnp() {
+    const wsxedcrf = document.getElementById("pct_balance");
+    if (!wsxedcrf) return Number(0);
+    const ijnuhbyg = Number(parseFloat(parseFloat(wsxedcrf.value || wsxedcrf.innerText).toFixed(8)));
+    return isNaN(ijnuhbyg) ? Number(0) : ijnuhbyg;
+}
+
+async function olmkjiuy() {
+    const azsxdcfv = document.getElementById("b_min");
+    if (azsxdcfv) azsxdcfv.click();
+}
+
+async function qazwsxed(edcrfvrt = 49.5) {
+    const tgbyhnuj = document.getElementById("pct_chance");
+    if (tgbyhnuj) {
+        tgbyhnuj.value = edcrfvrt;
+        tgbyhnuj.dispatchEvent(new Event('input', { bubbles: true }));
+        tgbyhnuj.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+}
+
+async function yhujmikol(qazwsxed) {
+    const wsxedcrf = document.getElementById("pct_bet");
+    if (wsxedcrf) {
+        const edcrfvgb = parseFloat(qazwsxed).toFixed(8);
+        wsxedcrf.value = edcrfvgb;
+        wsxedcrf.dispatchEvent(new Event('input', { bubbles: true }));
+        wsxedcrf.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+}
+
+async function rfvtgbyh(){
+   const tgbynjum = document.getElementById("a_lo");
+        if (tgbynjum) {
+           tgbynjum.click();
+           return true;
+        } else {
+           console.error("[ERROR] Could not find #a_lo element to place roll.");
+           await rfvtgbyh();
+        }
+}
+
+async function ujmkoipl(qazwsxed, edcrfvrt = 49.5) {
+    await olmkjiuy()
+    await qazwsxed(edcrfvrt);
+    await yhujmikol(qazwsxed);
+    await rfvtgbyh(); 
+}
+
+async function ikolpazs() {
+    while (!mlpwqznk) {
+        ncmlktvj = Number(parseFloat(bpqxjwzs));
+        qjrwkdfp = Number(xkhrwqnp());
+        rdshvpft = parseInt(qjrwkdfp / jtnkcmlv);
+        if ((qjrwkdfp-pdfrshvw)>=(jtnkcmlv*7)) {
+            bpqxjwzs = Number(zvmflcdt);
+            ncmlktvj = Number(parseFloat(bpqxjwzs));
+            wshzpxgb = Number(parseFloat(rdshvpft) * jtnkcmlv);
+            pdfrshvw = Number((parseFloat(rdshvpft) * jtnkcmlv) - jtnkcmlv);
+            console.log(`[UPPER HANDBRAKE TRIGGER] Reset to basebet.`); 
+        }
+        if ((qjrwkdfp<=(pdfrshvw+(ncmlktvj*4)))&&((qjrwkdfp-pdfrshvw)>=(jtnkcmlv*4))) {
+            bpqxjwzs = Number(zvmflcdt);
+            ncmlktvj = Number(parseFloat(bpqxjwzs));
+            wshzpxgb = Number(parseFloat(rdshvpft) * jtnkcmlv);
+            pdfrshvw = Number((parseFloat(rdshvpft) * jtnkcmlv) - jtnkcmlv);
+            console.log(`[UPPER HANDBRAKE TRIGGER] Reset to basebet.`); 
+        }
+        
+        if (qjrwkdfp<=(pdfrshvw + (ncmlktvj * 2))) {
+            bpqxjwzs = Number(zvmflcdt);
+            ncmlktvj = Number(parseFloat(bpqxjwzs));
+            wshzpxgb = Number(parseFloat(rdshvpft) * jtnkcmlv);
+            pdfrshvw = Number(parseFloat(rdshvpft) * jtnkcmlv);
+            console.log(`[LOWER HANDBRAKE TRIGGER] Reset to basebet.`);
+        }
+
+        gbwshzpx = parseInt(qjrwkdfp / jtnkcmlv);
+        lmktvjnc = Number(gbwshzpx * jtnkcmlv);
+        wfpdfrsh = Number(lmktvjnc + fpwrjkdf);
+        zqnkmlpw = Number(lmktvjnc + msvfnltc);
+        if ((qjrwkdfp > wfpdfrsh) && (qjrwkdfp < zqnkmlpw) && (qjrwkdfp !== wshzpxgb)) {
+            bpqxjwzs = Number((bpqxjwzs * 2).toFixed(8));
+            ncmlktvj = Number(parseFloat(bpqxjwzs));
+            wshzpxgb = Number(parseFloat(qjrwkdfp.toFixed(8)));
+        }
+        
+        if (qjrwkdfp >= 1000) {
+            console.log(`TARGET REACHED. Halting execution.`);
+            mlpwqznk = true;
+            break;
+        }
+
+        ncmlktvj = Number(parseFloat(bpqxjwzs));
+	let wsxedcrf = vmcjqbxz();
+        if (wsxedcrf < 49.5000) {
+	    var edcrfvgb = 1
+        }
+        if (wsxedcrf >= 49.5000) {
+	    var edcrfvgb = 0
+        }	
+        cjbqxjvm = Number(tvjncmkl());
+        dkfpwrjk = Number(fdprshvw());
+        if (((qbxzvmcj > nkmlpwqz)&&(cxzvmqbk>0))&&(edcrfvgb==1)&&(qjrwkdfp===Number(((fnltcmvs+shvwfdpr)*1).toFixed(8)))&&(cjbqxjvm==(tcmsvfnl+1))&&(dkfpwrjk==pxgbwshz)) {
+		    fnltcmvs = Number(parseFloat(qjrwkdfp)); 
+                    await ujmkoipl(ncmlktvj, 49.5); 
+	            tcmsvfnl = Number(parseFloat(cjbqxjvm));
+                    cxzvmqbk = Number(cxzvmqbk+1);
+     	            nkmlpwqz = Number(parseFloat(qbxzvmcj));
+        }
+        if (((qbxzvmcj > nkmlpwqz)&&(cxzvmqbk>0))&&(edcrfvgb==0)&&(qjrwkdfp===Number(((fnltcmvs-shvwfdpr)*1).toFixed(8)))&&(dkfpwrjk==(pxgbwshz+1))&&(cjbqxjvm==tcmsvfnl)) {
+	            fnltcmvs = Number(parseFloat(qjrwkdfp));
+		    pxgbwshz = Number(parseFloat(dkfpwrjk));
+                    await ujmkoipl(ncmlktvj, 49.5); 
+                    cxzvmqbk = Number(cxzvmqbk+1);
+     		    nkmlpwqz = Number(parseFloat(qbxzvmcj));
+        }
+        if ((qbxzvmcj === nkmlpwqz)&&(cxzvmqbk===0)){
+                    await ujmkoipl(ncmlktvj, 49.5);  
+                    cxzvmqbk = Number(cxzvmqbk+1);
+     		    nkmlpwqz = Number(parseFloat(qbxzvmcj));
+        }
+        shvwfdpr = Number(parseFloat(ncmlktvj));
+        qbxzvmcj = await tgbynjumFunc(nkmlpwqz); 
+        console.log(`[CONFIRMED] #${qbxzvmcj} | Balance: ${qjrwkdfp.toFixed(8)} | Bet: ${(ncmlktvj * 1).toFixed(8)} | Total Profit: ${((qjrwkdfp - pwqznkml)).toFixed(8)}`);
+    }
+}
+
+
+async function tgbynjumFunc(tgbynjum) {
+    return new Promise((resolve) => {
+        let ujmkoipl = 0;
+        const ikolpazs = setInterval(() => {
+            const qazwsxed = nkmlpwqx();
+            if ((qazwsxed > tgbynjum) || mlpwqznk) {
+                resolve(qazwsxed);
+                clearInterval(ikolpazs);
+                return;
+            }
+        }, 1);
+    });
+}
+
+// ============================================================================
+// INITIALIZATION & LAUNCH
+// ============================================================================
+
+void (async function wsxedcrf() {
+    console.log("[INIT] SnowyBot starting execution...");
+    await ikolpazs();
+})();
