@@ -73,7 +73,7 @@ async function olmkjiuy() {
     if (azsxdcfv) azsxdcfv.click();
 }
 
-async function qazwsxed(edcrfvrt = 49.5) {
+async function qazwsxez(edcrfvrt = 49.5) {
     const tgbyhnuj = document.getElementById("pct_chance");
     if (tgbyhnuj) {
         tgbyhnuj.value = edcrfvrt;
@@ -82,10 +82,10 @@ async function qazwsxed(edcrfvrt = 49.5) {
     }
 }
 
-async function yhujmikol(qazwsxed) {
+async function yhujmikol(qazwsxef) {
     const wsxedcrf = document.getElementById("pct_bet");
     if (wsxedcrf) {
-        const edcrfvgb = parseFloat(qazwsxed).toFixed(8);
+        const edcrfvgb = parseFloat(qazwsxef).toFixed(8);
         wsxedcrf.value = edcrfvgb;
         wsxedcrf.dispatchEvent(new Event('input', { bubbles: true }));
         wsxedcrf.dispatchEvent(new Event('change', { bubbles: true }));
@@ -105,7 +105,7 @@ async function rfvtgbyh(){
 
 async function ujmkoipl(qazwsxed, edcrfvrt = 49.5) {
     await olmkjiuy()
-    await qazwsxed(edcrfvrt);
+    await qazwsxez(edcrfvrt);
     await yhujmikol(qazwsxed);
     await rfvtgbyh(); 
 }
