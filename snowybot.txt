@@ -3,7 +3,7 @@
 // ============================================================================
 
 const pwqznkml = Number(xkhrwqnp());
-const zvmflcdt = Number((pwqznkml / 320).toFixed(8));
+const zvmflcdt = Number((pwqznkml / 100).toFixed(8));
 var bpqxjwzs = Number(zvmflcdt);
 const jtnkcmlv = Number(zvmflcdt * 10);
 var rdshvpft = parseInt(pwqznkml / jtnkcmlv);
@@ -73,7 +73,7 @@ async function olmkjiuy() {
     if (azsxdcfv) azsxdcfv.click();
 }
 
-async function qazwsxez(edcrfvrt = 49.5) {
+async function lolololololol(edcrfvrt = 49.5) {
     const tgbyhnuj = document.getElementById("pct_chance");
     if (tgbyhnuj) {
         tgbyhnuj.value = edcrfvrt;
@@ -82,10 +82,10 @@ async function qazwsxez(edcrfvrt = 49.5) {
     }
 }
 
-async function yhujmikol(qazwsxef) {
+async function yhujmikol(qazwsxed) {
     const wsxedcrf = document.getElementById("pct_bet");
     if (wsxedcrf) {
-        const edcrfvgb = parseFloat(qazwsxef).toFixed(8);
+        const edcrfvgb = parseFloat(qazwsxed).toFixed(8);
         wsxedcrf.value = edcrfvgb;
         wsxedcrf.dispatchEvent(new Event('input', { bubbles: true }));
         wsxedcrf.dispatchEvent(new Event('change', { bubbles: true }));
@@ -105,7 +105,7 @@ async function rfvtgbyh(){
 
 async function ujmkoipl(qazwsxed, edcrfvrt = 49.5) {
     await olmkjiuy()
-    await qazwsxez(edcrfvrt);
+    await lolololololol(edcrfvrt);
     await yhujmikol(qazwsxed);
     await rfvtgbyh(); 
 }
@@ -115,14 +115,14 @@ async function ikolpazs() {
         ncmlktvj = Number(parseFloat(bpqxjwzs));
         qjrwkdfp = Number(xkhrwqnp());
         rdshvpft = parseInt(qjrwkdfp / jtnkcmlv);
-        if ((qjrwkdfp-pdfrshvw)>=(jtnkcmlv*7)) {
+        if (((Number(qjrwkdfp))-(Number(pdfrshvw)))>=((Number(jtnkcmlv))*7)) {
             bpqxjwzs = Number(zvmflcdt);
             ncmlktvj = Number(parseFloat(bpqxjwzs));
             wshzpxgb = Number(parseFloat(rdshvpft) * jtnkcmlv);
             pdfrshvw = Number((parseFloat(rdshvpft) * jtnkcmlv) - jtnkcmlv);
             console.log(`[UPPER HANDBRAKE TRIGGER] Reset to basebet.`); 
         }
-        if ((qjrwkdfp<=(pdfrshvw+(ncmlktvj*4)))&&((qjrwkdfp-pdfrshvw)>=(jtnkcmlv*4))) {
+        if (((Number(qjrwkdfp))<=(Number(pdfrshvw)+((Number(ncmlktvj))*4)))&&(((Number(qjrwkdfp))-(Number(pdfrshvw)))>=((Number(jtnkcmlv))*4))) {
             bpqxjwzs = Number(zvmflcdt);
             ncmlktvj = Number(parseFloat(bpqxjwzs));
             wshzpxgb = Number(parseFloat(rdshvpft) * jtnkcmlv);
@@ -130,7 +130,7 @@ async function ikolpazs() {
             console.log(`[UPPER HANDBRAKE TRIGGER] Reset to basebet.`); 
         }
         
-        if (qjrwkdfp<=(pdfrshvw + (ncmlktvj * 2))) {
+        if ((Number(qjrwkdfp))<=((Number(pdfrshvw)) + (Number(ncmlktvj) * 2))) {
             bpqxjwzs = Number(zvmflcdt);
             ncmlktvj = Number(parseFloat(bpqxjwzs));
             wshzpxgb = Number(parseFloat(rdshvpft) * jtnkcmlv);
@@ -148,7 +148,7 @@ async function ikolpazs() {
             wshzpxgb = Number(parseFloat(qjrwkdfp.toFixed(8)));
         }
         
-        if (qjrwkdfp >= 1000) {
+        if (qjrwkdfp >= ((Number(pwqznkml))*1.1)) {
             console.log(`TARGET REACHED. Halting execution.`);
             mlpwqznk = true;
             break;
