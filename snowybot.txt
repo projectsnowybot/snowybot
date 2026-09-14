@@ -3,7 +3,7 @@
 // ============================================================================
 
 const pwqznkml = Number(xkhrwqnp());
-const zvmflcdt = Number((pwqznkml / 100).toFixed(8));
+const zvmflcdt = Number((pwqznkml / 107).toFixed(8));
 var bpqxjwzs = Number(zvmflcdt);
 const jtnkcmlv = Number(zvmflcdt * 10);
 var rdshvpft = parseInt(pwqznkml / jtnkcmlv);
@@ -27,7 +27,8 @@ let dkfpwrjk = Number(fdprshvw());
 let tcmsvfnl = Number(parseFloat(cjbqxjvm));
 let pxgbwshz = Number(parseFloat(dkfpwrjk));
 let ncmlktvj = Number(parseFloat(bpqxjwzs));	 
-let shvwfdpr = Number(parseFloat(ncmlktvj)); 
+let shvwfdpr = Number(parseFloat(ncmlktvj));
+var hoveka = Number(parseFloat(pwqznkml)); 
 
 function vmcjqbxz() {
         const rjkdfpwr = document.getElementById("me");
@@ -115,26 +116,24 @@ async function ikolpazs() {
         ncmlktvj = Number(parseFloat(bpqxjwzs));
         qjrwkdfp = Number(xkhrwqnp());
         rdshvpft = parseInt(qjrwkdfp / jtnkcmlv);
-        if (((Number(qjrwkdfp))-(Number(pdfrshvw)))>=((Number(jtnkcmlv))*7)) {
+        if ((Number(qjrwkdfp))>(Number(hoveka))){
+            hoveka = Number(parseFloat(qjrwkdfp));
+        } 
+        if ((((Number(qjrwkdfp))-((Number(pdfrshvw)) + ((Number(ncmlktvj))*9)))<=(Number(ncmlktvj)))&&((Number(qjrwkdfp))>=(Number(hoveka)))) {
             bpqxjwzs = Number(zvmflcdt);
             ncmlktvj = Number(parseFloat(bpqxjwzs));
             wshzpxgb = Number(parseFloat(rdshvpft) * jtnkcmlv);
             pdfrshvw = Number((parseFloat(rdshvpft) * jtnkcmlv) - jtnkcmlv);
-            console.log(`[UPPER HANDBRAKE TRIGGER] Reset to basebet.`); 
-        }
-        if (((Number(qjrwkdfp))<=(Number(pdfrshvw)+((Number(ncmlktvj))*4)))&&(((Number(qjrwkdfp))-(Number(pdfrshvw)))>=((Number(jtnkcmlv))*4))) {
-            bpqxjwzs = Number(zvmflcdt);
-            ncmlktvj = Number(parseFloat(bpqxjwzs));
-            wshzpxgb = Number(parseFloat(rdshvpft) * jtnkcmlv);
-            pdfrshvw = Number((parseFloat(rdshvpft) * jtnkcmlv) - jtnkcmlv);
+            hoveka = Number(parseFloat(qjrwkdfp));
             console.log(`[UPPER HANDBRAKE TRIGGER] Reset to basebet.`); 
         }
         
-        if ((Number(qjrwkdfp))<=((Number(pdfrshvw)) + (Number(ncmlktvj) * 2))) {
+        if (((Number(qjrwkdfp))-((Number(pdfrshvw)) + (Number(ncmlktvj))))<=(Number(ncmlktvj))) {
             bpqxjwzs = Number(zvmflcdt);
             ncmlktvj = Number(parseFloat(bpqxjwzs));
             wshzpxgb = Number(parseFloat(rdshvpft) * jtnkcmlv);
-            pdfrshvw = Number(parseFloat(rdshvpft) * jtnkcmlv);
+            pdfrshvw = Number((parseFloat(rdshvpft) * jtnkcmlv) - (jtnkcmlv*2));
+            hoveka = Number(parseFloat(qjrwkdfp));
             console.log(`[LOWER HANDBRAKE TRIGGER] Reset to basebet.`);
         }
 
@@ -148,7 +147,7 @@ async function ikolpazs() {
             wshzpxgb = Number(parseFloat(qjrwkdfp.toFixed(8)));
         }
         
-        if (qjrwkdfp >= ((Number(pwqznkml))*1.1)) {
+        if (qjrwkdfp >= 144000) {
             console.log(`TARGET REACHED. Halting execution.`);
             mlpwqznk = true;
             break;
