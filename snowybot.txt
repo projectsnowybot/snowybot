@@ -112,6 +112,10 @@ async function ujmkoipl(qazwsxed, edcrfvrt = 49.5) {
     await rfvtgbyh(); 
 }
 
+function sleep(ms){
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function ikolpazs() {
     while (!mlpwqznk) {
         ncmlktvj = Number(parseFloat(bpqxjwzs));
@@ -125,7 +129,14 @@ async function ikolpazs() {
         if ((Number(qjrwkdfp))>(Number(hoveka))){
             hoveka = Number(parseFloat(qjrwkdfp));
         } 
-
+        if (((Number(qjrwkdfp))-(Number(pdfrshvw)))<0) {
+            bpqxjwzs = Number(zvmflcdt);
+            ncmlktvj = Number(parseFloat(bpqxjwzs));
+            wshzpxgb = Number(parseFloat(rdshvpft) * jtnkcmlv);
+            hoveka = Number(parseFloat(qjrwkdfp));
+            pdfrshvw = Number((parseFloat(rdshvpft) * jtnkcmlv) - jtnkcmlv);
+            console.log(`[LOWER HANDBRAKE TRIGGER] Reset to basebet.`);
+        }
         if (((Number(qjrwkdfp)) > (Number(wfpdfrsh))) && ((Number(qjrwkdfp)) < (Number(zqnkmlpw))) &&((Number(qjrwkdfp)) !== (Number(wshzpxgb)))) {
             bpqxjwzs = Number((bpqxjwzs * 2).toFixed(8));
             ncmlktvj = Number(parseFloat(bpqxjwzs));
@@ -140,7 +151,14 @@ async function ikolpazs() {
             hoveka = Number(parseFloat(qjrwkdfp));
             console.log(`[UPPER HANDBRAKE TRIGGER] Reset to basebet.`); 
         }
-        
+        if ((((Number(qjrwkdfp))-(Number(pdfrshvw)))>=((Number(jtnkcmlv))*6))&&(((Number(qjrwkdfp))-((Number(pdfrshvw)) + (Number(jtnkcmlv)) + ((Number(ncmlktvj))*9)))<=(Number(ncmlktvj)))&&((Number(qjrwkdfp))>=(Number(hoveka)))&&((Number(qjrwkdfp)) == (Number(wshzpxgb)))) {
+            bpqxjwzs = Number(zvmflcdt*2);
+            ncmlktvj = Number(parseFloat(bpqxjwzs));
+            wshzpxgb = Number(parseFloat(qjrwkdfp.toFixed(8)));
+            pdfrshvw = Number((parseFloat(rdshvpft) * jtnkcmlv) - (jtnkcmlv));
+            hoveka = Number(parseFloat(qjrwkdfp));
+            console.log(`[UPPER HANDBRAKE TRIGGER] Reset to basebet.`); 
+        }
         if ((((Number(qjrwkdfp))-(Number(pdfrshvw)))<=((Number(ncmlktvj))*2))&&((Number(qjrwkdfp)) !== (Number(wshzpxgb)))) {
             bpqxjwzs = Number(zvmflcdt);
             ncmlktvj = Number(parseFloat(bpqxjwzs));
@@ -149,14 +167,6 @@ async function ikolpazs() {
             console.log(`[LOWER HANDBRAKE TRIGGER] Reset to basebet.`);
         }
 
-        if ((((Number(qjrwkdfp))-(Number(pdfrshvw)))<0)&&((Number(qjrwkdfp)) !== (Number(wshzpxgb)))) {
-            bpqxjwzs = Number(zvmflcdt);
-            ncmlktvj = Number(parseFloat(bpqxjwzs));
-            wshzpxgb = Number(parseFloat(rdshvpft) * jtnkcmlv);
-            hoveka = Number(parseFloat(qjrwkdfp));
-            pdfrshvw = Number((parseFloat(rdshvpft) * jtnkcmlv) - jtnkcmlv);
-            console.log(`[LOWER HANDBRAKE TRIGGER] Reset to basebet.`);
-        }
         if (qjrwkdfp >= 1000) {
             console.log(`TARGET REACHED. Halting execution.`);
             mlpwqznk = true;
@@ -195,7 +205,8 @@ async function ikolpazs() {
         shvwfdpr = Number(parseFloat(ncmlktvj));
         qbxzvmcj = await tgbynjumFunc(nkmlpwqz); 
         console.log(`[CONFIRMED] #${qbxzvmcj} | Balance: ${qjrwkdfp.toFixed(8)} | Bet: ${(ncmlktvj * 1).toFixed(8)} | Total Profit: ${((qjrwkdfp - pwqznkml)).toFixed(8)}`);
-    }
+        await sleep(1000);    
+   }
 }
 
 
