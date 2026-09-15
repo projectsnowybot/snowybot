@@ -3,17 +3,18 @@
 // ============================================================================
 
 const pwqznkml = Number(xkhrwqnp());
-const zvmflcdt = Number((pwqznkml / 107).toFixed(8));
+const zvmflcdt = Number((pwqznkml / 14400).toFixed(8));
 var bpqxjwzs = Number(zvmflcdt);
 const jtnkcmlv = Number(zvmflcdt * 10);
+const byjove = Number(zvmflcdt * 7);
 var rdshvpft = parseInt(pwqznkml / jtnkcmlv);
 var mlpwqznk = false;
 var cxzvmqbk = 0;
 var qjrwkdfp = Number(pwqznkml);
 var fnltcmvs = Number(parseFloat(qjrwkdfp));
-var wshzpxgb = Number(rdshvpft * jtnkcmlv);
+var wshzpxgb = Number(parseFloat(rdshvpft) * jtnkcmlv);
 var ktvjncml = Number(parseFloat(wshzpxgb));
-var pdfrshvw = Number((rdshvpft * jtnkcmlv) - jtnkcmlv);
+var pdfrshvw = Number((rdshvpft * jtnkcmlv) - (jtnkcmlv*2));
 var nkmlpwqz = 0;
 var qbxzvmcj = 0;
 const fpwrjkdf = Number(zvmflcdt * 6.9);
@@ -116,45 +117,54 @@ async function ikolpazs() {
         ncmlktvj = Number(parseFloat(bpqxjwzs));
         qjrwkdfp = Number(xkhrwqnp());
         rdshvpft = parseInt(qjrwkdfp / jtnkcmlv);
+        gbwshzpx = parseInt(qjrwkdfp / jtnkcmlv);
+        lmktvjnc = Number(gbwshzpx * jtnkcmlv);
+        wfpdfrsh = Number(lmktvjnc + fpwrjkdf);
+        zqnkmlpw = Number(lmktvjnc + msvfnltc); 
+
         if ((Number(qjrwkdfp))>(Number(hoveka))){
             hoveka = Number(parseFloat(qjrwkdfp));
         } 
-        if ((((Number(qjrwkdfp))-((Number(pdfrshvw)) + ((Number(ncmlktvj))*9)))<=(Number(ncmlktvj)))&&((Number(qjrwkdfp))>=(Number(hoveka)))) {
-            bpqxjwzs = Number(zvmflcdt);
+
+        if (((Number(qjrwkdfp)) > (Number(wfpdfrsh))) && ((Number(qjrwkdfp)) < (Number(zqnkmlpw))) &&((Number(qjrwkdfp)) !== (Number(wshzpxgb)))) {
+            bpqxjwzs = Number((bpqxjwzs * 2).toFixed(8));
             ncmlktvj = Number(parseFloat(bpqxjwzs));
-            wshzpxgb = Number(parseFloat(rdshvpft) * jtnkcmlv);
-            pdfrshvw = Number((parseFloat(rdshvpft) * jtnkcmlv) - jtnkcmlv);
-            hoveka = Number(parseFloat(qjrwkdfp));
-            console.log(`[UPPER HANDBRAKE TRIGGER] Reset to basebet.`); 
+            wshzpxgb = Number(parseFloat(qjrwkdfp.toFixed(8)));
         }
-        
-        if (((Number(qjrwkdfp))-((Number(pdfrshvw)) + (Number(ncmlktvj))))<=(Number(ncmlktvj))) {
+
+        if ((((Number(qjrwkdfp))-(Number(pdfrshvw)))>=((Number(jtnkcmlv))*6))&&(((Number(qjrwkdfp))-((Number(pdfrshvw)) + (Number(jtnkcmlv)) + ((Number(ncmlktvj))*9)))<=(Number(ncmlktvj)))&&((Number(qjrwkdfp))>=(Number(hoveka)))&&((Number(qjrwkdfp)) !== (Number(wshzpxgb)))) {
             bpqxjwzs = Number(zvmflcdt);
             ncmlktvj = Number(parseFloat(bpqxjwzs));
             wshzpxgb = Number(parseFloat(rdshvpft) * jtnkcmlv);
             pdfrshvw = Number((parseFloat(rdshvpft) * jtnkcmlv) - (jtnkcmlv*2));
             hoveka = Number(parseFloat(qjrwkdfp));
+            console.log(`[UPPER HANDBRAKE TRIGGER] Reset to basebet.`); 
+        }
+        
+        if ((((Number(qjrwkdfp))-(Number(pdfrshvw)))<=((Number(ncmlktvj))*2))&&((Number(qjrwkdfp)) !== (Number(wshzpxgb)))) {
+            bpqxjwzs = Number(zvmflcdt);
+            ncmlktvj = Number(parseFloat(bpqxjwzs));
+            wshzpxgb = Number(parseFloat(rdshvpft) * jtnkcmlv);
+            hoveka = Number(parseFloat(qjrwkdfp));
             console.log(`[LOWER HANDBRAKE TRIGGER] Reset to basebet.`);
         }
 
-        gbwshzpx = parseInt(qjrwkdfp / jtnkcmlv);
-        lmktvjnc = Number(gbwshzpx * jtnkcmlv);
-        wfpdfrsh = Number(lmktvjnc + fpwrjkdf);
-        zqnkmlpw = Number(lmktvjnc + msvfnltc);
-        if ((qjrwkdfp > wfpdfrsh) && (qjrwkdfp < zqnkmlpw) && (qjrwkdfp !== wshzpxgb)) {
-            bpqxjwzs = Number((bpqxjwzs * 2).toFixed(8));
+        if ((((Number(qjrwkdfp))-(Number(pdfrshvw)))<0)&&((Number(qjrwkdfp)) !== (Number(wshzpxgb)))) {
+            bpqxjwzs = Number(zvmflcdt);
             ncmlktvj = Number(parseFloat(bpqxjwzs));
-            wshzpxgb = Number(parseFloat(qjrwkdfp.toFixed(8)));
+            wshzpxgb = Number(parseFloat(rdshvpft) * jtnkcmlv);
+            hoveka = Number(parseFloat(qjrwkdfp));
+            pdfrshvw = Number((parseFloat(rdshvpft) * jtnkcmlv) - jtnkcmlv);
+            console.log(`[LOWER HANDBRAKE TRIGGER] Reset to basebet.`);
         }
-        
-        if (qjrwkdfp >= 144000) {
+        if (qjrwkdfp >= 1000) {
             console.log(`TARGET REACHED. Halting execution.`);
             mlpwqznk = true;
             break;
         }
 
         ncmlktvj = Number(parseFloat(bpqxjwzs));
-	let wsxedcrf = vmcjqbxz();
+	    let wsxedcrf = vmcjqbxz();
         if (wsxedcrf < 49.5000) {
 	    var edcrfvgb = 1
         }
