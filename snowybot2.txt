@@ -42,7 +42,7 @@ var activeBaseBracket = activeChunks * activeTenTimes;
 var activeLowThreshold = activeBaseBracket + activeMult6_9;
 var activeHighThreshold = activeBaseBracket + activeMult7_9; 
 var activeTrackedBracket = parseFloat((Math.floor(currentBalance / (activeBet * 10))) * (activeBet * 10));
-var safetyHandbrakeLimit = parseFloat(currentBalance - (beatsbase * 10));
+var safetyHandbrakeLimit = parseFloat(((Math.floor(initialBalance / (beatsbase * 10))) * (beatsbase * 10))- (beatsbase * 20));
 var coolzy = Number((beatsbasetwo).toFixed(8));
 var lastWinsFlag = 0;
 var booze = parseFloat(initialBalance);
@@ -136,10 +136,13 @@ async function getenlightened(boob) {
     while (true) {
         currentBalance = getPlatformBalance();
 
-        if ((currentBalance < (boob - (beatsbase * 2.9))) && (currentBalance > (boob - (beatsbase * 6.9)))) {
+        if ((currentBalance < (boob - (beatsbase * 2.9))) && (currentBalance > (boob - (beatsbase * 12.9)))) {
             return { coolzy: Number((beatsbasetwo * 2).toFixed(8)), sadly: parseFloat(currentBalance), boob: boob };
-        }    
-        if (currentBalance < (boob - (beatsbase * 6.9))) {
+        }   
+        if ((currentBalance < (boob - (beatsbase * 12.9))) && (currentBalance > (boob - (beatsbase * 16.9)))) {
+            return { coolzy: Number((beatsbasetwo * 4).toFixed(8)), sadly: parseFloat(currentBalance), boob: boob };
+        }   
+        if (currentBalance < (boob - (beatsbase * 16.9))) {
             let newCheck = parseFloat((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10));
             return { coolzy: Number((beatsbasetwo).toFixed(8)), sadly: newCheck, boob: newCheck };
         } 
@@ -186,7 +189,7 @@ async function startMainLoop() {
                 activeBet = Number((beatsbasetwo).toFixed(8))
                 checkpointBalance = parseFloat(((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10)));
                 booze = parseFloat(((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10)));
-                safetyHandbrakeLimit = parseFloat((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10));
+                safetyHandbrakeLimit = parseFloat(((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10))-(beatsbase * 10));
                 checkpointBalancetwo = parseFloat((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10));
             }
         }    
@@ -194,15 +197,15 @@ async function startMainLoop() {
             activeBet = parseFloat(Number((beatsbasetwo).toFixed(8)));
             booze = parseFloat((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10));
             checkpointBalance = parseFloat((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10));
-            safetyHandbrakeLimit = parseFloat(((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10))-(beatsbase * 10));
+            safetyHandbrakeLimit = parseFloat(((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10))- (beatsbase * 20));
             checkpointBalancetwo = parseFloat((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10));
         }
-        if ((activeBet==Number((beatsbasetwo).toFixed(8)))&&(currentBalance > (checkpointBalance + (activeBet * 6.9))) && (currentBalance < (checkpointBalance + (activeBet * 7.9))) && (currentBalance !== booze)) {
+        if ((activeBet==Number((beatsbasetwo).toFixed(8)))&&(currentBalance > (checkpointBalance + (activeBet * 5.9))) && (currentBalance < (checkpointBalance + (activeBet * 6.9))) && (currentBalance !== booze)) {
             activeBet = parseFloat(Number((activeBet * 2).toFixed(8)));
             booze = parseFloat(currentBalance);
             checkpointBalance = parseFloat(currentBalance);
         }    
-        if ((activeBet==Number((beatsbasetwo).toFixed(8)))&&(currentBalance < (checkpointBalance - (activeBet * 2.9))) && (currentBalance > (checkpointBalance - (activeBet * 3.9))) && (currentBalance !== booze)) {
+        if ((activeBet==Number((beatsbasetwo).toFixed(8)))&&(currentBalance < (checkpointBalance - (activeBet * 1.9))) && (currentBalance > (checkpointBalance - (activeBet * 2.9))) && (currentBalance !== booze)) {
             activeBet = parseFloat(Number((activeBet * 2).toFixed(8)));
             booze = parseFloat(currentBalance);
             checkpointBalance = parseFloat(currentBalance);
