@@ -4,7 +4,7 @@
 
 const initialBalance = Number(getPlatformBalance());
 const beatsbase = Number((initialBalance / 14400).toFixed(8));
-const beatsbasetwo = Number(beatsbase * 1.25);
+const beatsbasetwo = Number(beatsbase*1.25);
 const tenTimesBase = Number(beatsbase * 10);
 const fourTimesBase = Number(beatsbase * 4);
 const sevenTimesBase = Number(beatsbase * 7);
@@ -143,10 +143,16 @@ async function getenlightened(boob) {
         if ((currentBalance > (boob + (beatsbase * 16.9))) && (currentBalance < (boob + (beatsbase * 36.9)))) {
             return { coolzy: (beatsbasetwo * 4), sadly: (boob + (beatsbase * 17.5))};
         } 
-        if ((currentBalance > (boob + (beatsbase * 36.9))) && (currentBalance < (boob + (beatsbase * 50)))) {
+        if ((currentBalance > (boob + (beatsbase * 36.9))) && (currentBalance < (boob + (beatsbase * 76.9)))) {
             return { coolzy: (beatsbasetwo * 8), sadly: (boob + (beatsbase * 37.5))};
-        }      
-        if (currentBalance > (boob + (beatsbase * 50))) {
+        }    
+        if ((currentBalance > (boob + (beatsbase * 76.9))) && (currentBalance < (boob + (beatsbase * 176.9)))) {
+            return { coolzy: (beatsbasetwo * 16), sadly: (boob + (beatsbase * 77.5))};
+        } 
+        if ((currentBalance > (boob + (beatsbase * 176.9))) && (currentBalance < (boob + (beatsbase * 200)))) {
+            return { coolzy: (beatsbasetwo * 32), sadly: (boob + (beatsbase * 177.5))};
+        }    
+        if (currentBalance > (boob + (beatsbase * 200))) {
             return { coolzy: (beatsbasetwo), sadly: newCheck };
         }  
         if (currentBalance < (boob + (beatsbase * 6.9))) {
@@ -157,15 +163,14 @@ async function getenlightened(boob) {
 
 
 async function startMainLoop() {
-       currentBalance = getPlatformBalance();
-       if (currentBalance > (checkpointBalancetwo + (beatsbase * 50))) {
+        currentBalance = getPlatformBalance();
+        if (currentBalance > (safetyHandbrakeLimit + (beatsbase * 80))) {
             activeBet = beatsbasetwo;
             booze = parseFloat((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10));
             checkpointBalance = parseFloat((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10));
-            checkpointBalancetwo = parseFloat((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10));
             safetyHandbrakeLimit = parseFloat(((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10))-(beatsbase * 20));
+            checkpointBalancetwo = parseFloat((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10));
         }
-
         if ((activeBet<(beatsbasetwo*1.5))&&(currentBalance > (checkpointBalance + (activeBet * 5.9))) && (currentBalance < (checkpointBalance + (activeBet * 6.9))) ) {
             activeBet = (activeBet * 2);
             booze = parseFloat(currentBalance);
@@ -187,8 +192,6 @@ async function startMainLoop() {
             booze = parseFloat(currentBalance);
             checkpointBalance = parseFloat(currentBalance);
         } 
-
-
         if ((activeBet>(beatsbasetwo*15))&&(currentBalance > (checkpointBalance + (activeBet * 4.9))) && (currentBalance < (checkpointBalance + (activeBet * 5.9))) ) {
             activeBet = (activeBet * 2);
             booze = parseFloat(currentBalance);
@@ -199,7 +202,7 @@ async function startMainLoop() {
             booze = parseFloat(currentBalance);
             checkpointBalance = parseFloat(currentBalance);
         } 
-        if (((currentBalance - (safetyHandbrakeLimit + (activeBet * 2))) <= 0)&&(activeBet!==booze)) {
+        if (((currentBalance - (safetyHandbrakeLimit + (activeBet * 2))) <= 0)&&((currentBalance - safetyHandbrakeLimit) >= 0)&&(currentBalance!==booze)) {
             worry = await getenlightened(checkpointBalancetwo);
             if (worry.coolzy > beatsbasetwo){
                 activeBet = parseFloat(worry.coolzy);
@@ -210,11 +213,15 @@ async function startMainLoop() {
                 activeBet = beatsbasetwo;
                 checkpointBalance = parseFloat(((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10)));
                 booze = parseFloat(((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10)));
-                safetyHandbrakeLimit = parseFloat(((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10))-(beatsbase * 20));
-                checkpointBalancetwo = parseFloat((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10));
             }
-        }    
-
+        }
+        if ((currentBalance - safetyHandbrakeLimit) < 0){
+                activeBet = beatsbasetwo;
+                checkpointBalance = parseFloat(((Math.ceil(currentBalance / (beatsbase * 10))) * (beatsbase * 10)));
+                booze = parseFloat(((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10)));
+                safetyHandbrakeLimit = parseFloat(((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10))-(beatsbase * 10));
+                checkpointBalancetwo = parseFloat((Math.ceil(currentBalance / (beatsbase * 10))) * (beatsbase * 10)); 
+        }
         if (currentBalance >= (initialBalance * 24000)) {
             console.log(`TARGET REACHED. Halting execution.`);
             return;
