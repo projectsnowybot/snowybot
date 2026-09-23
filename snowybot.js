@@ -3,8 +3,8 @@
 // ============================================================================
 
 const initialBalance = Number(getPlatformBalance());
-const beatsbase = Number((initialBalance / 14400).toFixed(8));
-const beatsbasetwo = Number(beatsbase*1.25);
+const beatsbase = Number((initialBalance / 1440000).toFixed(8));
+const beatsbasetwo = Number(beatsbase);
 const tenTimesBase = Number(beatsbase * 10);
 const fourTimesBase = Number(beatsbase * 4);
 const sevenTimesBase = Number(beatsbase * 7);
@@ -41,15 +41,17 @@ var activeChunks = Math.floor(currentBalance / activeTenTimes);
 var activeBaseBracket = activeChunks * activeTenTimes;
 var activeLowThreshold = activeBaseBracket + activeMult6_9;
 var activeHighThreshold = activeBaseBracket + activeMult7_9; 
-var activeTrackedBracket = parseFloat((Math.floor(currentBalance / (activeBet * 10))) * (activeBet * 10));
-var safetyHandbrakeLimit = parseFloat(((Math.floor(initialBalance / (beatsbase * 10))) * (beatsbase * 10))-(beatsbase * 20));
+var activeTrackedBracket = parseFloat((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10));
+var safetyHandbrakeLimit = parseFloat(((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10))-(beatsbase * 100));
 var coolzy = Number((beatsbasetwo).toFixed(8));
 var lastWinsFlag = 0;
 var booze = parseFloat(initialBalance);
 let worry;
 var betAttemptkool = 0;
 var nottoofast = true;
-var checkpointBalancetwo = parseFloat((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10));
+var fart = 1;
+var checkpoint = parseFloat((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10));
+var checkpointtwo = parseFloat(currentBalance);
 
 function getRollResult() {
     const rollElement = document.getElementById("me");
@@ -134,102 +136,50 @@ function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function getenlightened(boob) {
+async function Getmybet(active) {
         currentBalance = getPlatformBalance();
-        let newCheck = parseFloat((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10));
-        if ((currentBalance > (boob + (beatsbase * 6.9))) && (currentBalance < (boob + (beatsbase * 16.9)))) {
-            return { coolzy: (beatsbasetwo * 2), sadly: (boob + (beatsbase * 7.5)) };
-        }  
-        if ((currentBalance > (boob + (beatsbase * 16.9))) && (currentBalance < (boob + (beatsbase * 36.9)))) {
-            return { coolzy: (beatsbasetwo * 4), sadly: (boob + (beatsbase * 17.5))};
+        activeBet = parseFloat(active);
+
+        if (currentBalance>=(checkpoint+((beatsbase * 10)*fart))){
+            activeBet = beatsbasetwo;
+            fart = 1;
+            booze = parseFloat((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10));
+            checkpoint = parseFloat((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10));
         } 
-        if ((currentBalance > (boob + (beatsbase * 36.9))) && (currentBalance < (boob + (beatsbase * 76.9)))) {
-            return { coolzy: (beatsbasetwo * 8), sadly: (boob + (beatsbase * 37.5))};
+        if ((activeBet<(beatsbasetwo*1.5))&&(currentBalance > (booze + (activeBet * 6.9)))) {
+            activeBet = (activeBet * 2);
+            booze = parseFloat(currentBalance);
         }    
-        if ((currentBalance > (boob + (beatsbase * 76.9))) && (currentBalance < (boob + (beatsbase * 176.9)))) {
-            return { coolzy: (beatsbasetwo * 16), sadly: (boob + (beatsbase * 77.5))};
+        if ((activeBet<(beatsbasetwo*1.5))&&(currentBalance < (booze - (activeBet * 2.9)))) {
+            activeBet = (activeBet * 2);
+            booze = parseFloat(currentBalance);
         } 
-        if ((currentBalance > (boob + (beatsbase * 176.9))) && (currentBalance < (boob + (beatsbase * 200)))) {
-            return { coolzy: (beatsbasetwo * 32), sadly: (boob + (beatsbase * 177.5))};
-        }    
-        if (currentBalance > (boob + (beatsbase * 200))) {
-            return { coolzy: (beatsbasetwo), sadly: newCheck };
+        if ((activeBet>(beatsbasetwo*1.5))&&(currentBalance > (booze + (activeBet * 4.9))) ) {
+            activeBet = (activeBet * 2);
+            booze = parseFloat(currentBalance);
         }  
-        if (currentBalance < (boob + (beatsbase * 6.9))) {
-            return { coolzy: (beatsbasetwo), sadly: newCheck };
-        }
+        if ((activeBet>(beatsbasetwo*1.5))&&(currentBalance < (booze - (activeBet * 4.9))) ) {
+            activeBet = (activeBet * 2);
+            fart = 0;
+            booze = parseFloat(currentBalance);
+        }    
+
+        let formactiveBet = parseFloat(activeBet); 
+        let migraine = Number(formactiveBet);
+        let friction =  Number((migraine*1).toFixed(8));
+        return friction; 
 }
 
 
 
 async function startMainLoop() {
-        currentBalance = getPlatformBalance();
-        if (currentBalance > (safetyHandbrakeLimit + (beatsbase * 80))) {
-            activeBet = beatsbasetwo;
-            booze = parseFloat((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10));
-            checkpointBalance = parseFloat((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10));
-            safetyHandbrakeLimit = parseFloat(((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10))-(beatsbase * 20));
-            checkpointBalancetwo = parseFloat((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10));
-        }
-        if ((activeBet<(beatsbasetwo*1.5))&&(currentBalance > (checkpointBalance + (activeBet * 5.9))) && (currentBalance < (checkpointBalance + (activeBet * 6.9))) ) {
-            activeBet = (activeBet * 2);
-            booze = parseFloat(currentBalance);
-            checkpointBalance = parseFloat(currentBalance);
-        }    
-        if ((activeBet<(beatsbasetwo*1.5))&&(currentBalance < (checkpointBalance - (activeBet * 1.9))) && (currentBalance > (checkpointBalance - (activeBet * 2.9))) ) {
-            activeBet = (activeBet * 2);
-            booze = parseFloat(currentBalance);
-            checkpointBalance = parseFloat(currentBalance);
-        } 
-
-        if ((activeBet>(beatsbasetwo*1.5))&&(activeBet<(beatsbasetwo*15))&&(currentBalance > (checkpointBalance + (activeBet * 3.9))) && (currentBalance < (checkpointBalance + (activeBet * 4.9))) ) {
-            activeBet = (activeBet * 2);
-            booze = parseFloat(currentBalance);
-            checkpointBalance = parseFloat(currentBalance);
-        }    
-        if ((activeBet>(beatsbasetwo*1.5))&&(activeBet<(beatsbasetwo*15))&&(currentBalance < (checkpointBalance - (activeBet * 3.9))) && (currentBalance > (checkpointBalance - (activeBet * 4.9))) ) {
-            activeBet = (activeBet * 2);
-            booze = parseFloat(currentBalance);
-            checkpointBalance = parseFloat(currentBalance);
-        } 
-        if ((activeBet>(beatsbasetwo*15))&&(currentBalance > (checkpointBalance + (activeBet * 4.9))) && (currentBalance < (checkpointBalance + (activeBet * 5.9))) ) {
-            activeBet = (activeBet * 2);
-            booze = parseFloat(currentBalance);
-            checkpointBalance = parseFloat(currentBalance);
-        }    
-        if ((activeBet>(beatsbasetwo*15))&&(currentBalance < (checkpointBalance - (activeBet * 4.9))) && (currentBalance > (checkpointBalance - (activeBet * 5.9))) ) {
-            activeBet = (activeBet * 2);
-            booze = parseFloat(currentBalance);
-            checkpointBalance = parseFloat(currentBalance);
-        } 
-        if (((currentBalance - (safetyHandbrakeLimit + (activeBet * 2))) <= 0)&&((currentBalance - safetyHandbrakeLimit) >= 0)&&(currentBalance!==booze)) {
-            worry = await getenlightened(checkpointBalancetwo);
-            if (worry.coolzy > beatsbasetwo){
-                activeBet = parseFloat(worry.coolzy);
-                checkpointBalance = parseFloat(worry.sadly);
-                booze = parseFloat(((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10)));
-            }
-            if (worry.coolzy == beatsbasetwo){
-                activeBet = beatsbasetwo;
-                checkpointBalance = parseFloat(((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10)));
-                booze = parseFloat(((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10)));
-            }
-        }
-        if ((currentBalance - safetyHandbrakeLimit) < 0){
-                activeBet = beatsbasetwo;
-                checkpointBalance = parseFloat(((Math.ceil(currentBalance / (beatsbase * 10))) * (beatsbase * 10)));
-                booze = parseFloat(((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10)));
-                safetyHandbrakeLimit = parseFloat(((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10))-(beatsbase * 10));
-                checkpointBalancetwo = parseFloat((Math.ceil(currentBalance / (beatsbase * 10))) * (beatsbase * 10)); 
-        }
-        if (currentBalance >= (initialBalance * 24000)) {
+     currentBalance = getPlatformBalance();
+     if ((currentBalance == Number(((lastBalance + lastBet) * 1).toFixed(8)))||(currentBalance == Number(((lastBalance - lastBet) * 1).toFixed(8)))||(betAttemptCount == 0)){
+        var Mybet = await Getmybet(lastBet);
+        if (currentBalance >= 144) {
             console.log(`TARGET REACHED. Halting execution.`);
             return;
         }
-        activeBet = parseFloat(activeBet); 
-        let formactiveBet = parseFloat(activeBet); 
-        let migraine = Number(formactiveBet);
-        let Mybet =  Number((migraine*1).toFixed(8));
         let rollResultVal = getRollResult();
         if (rollResultVal < 49.5000) {
             lastWinsFlag = 1;
@@ -240,24 +190,24 @@ async function startMainLoop() {
         wins = Number(getDOMWins());
         losses = Number(getDOMLosses()); 
         if ((currentBetId == previousBetId) && (betAttemptCount == 0)) {
-            console.log(`[CONFIRMED] #${currentBetId} | Balance: ${currentBalance.toFixed(8)} | Bet: ${(activeBet * 1).toFixed(8)} | Total Profit: ${((currentBalance - initialBalance)).toFixed(8)}`);
-            lastBet = Number(parseFloat(Mybet));
+            console.log(`[CONFIRMED] #${currentBetId} | Balance: ${currentBalance.toFixed(8)} | Bet: ${(Mybet * 1).toFixed(8)} | Total Profit: ${((currentBalance - initialBalance)).toFixed(8)}`);
             await executeRoll(Mybet, 49.5);
+            lastBet = Number(parseFloat(Mybet));
             previousBetId = Number(parseFloat(currentBetId));
             betAttemptCount = betAttemptCount+1 
             currentBetId = await waitForBetCompletion(previousBetId);
         }    
         if (((currentBetId > previousBetId) && (betAttemptCount >= 1)) && (lastWinsFlag == 1) && (currentBalance == Number(((lastBalance + lastBet) * 1).toFixed(8))) && (wins == (initialWins + 1)) && (losses == initialLosses)) {
-            console.log(`[CONFIRMED] #${currentBetId} | Balance: ${currentBalance.toFixed(8)} | Bet: ${(activeBet * 1).toFixed(8)} | Total Profit: ${((currentBalance - initialBalance)).toFixed(8)}`);
-            lastBet = Number(parseFloat(Mybet));
+            console.log(`[CONFIRMED] #${currentBetId} | Balance: ${currentBalance.toFixed(8)} | Bet: ${(Mybet * 1).toFixed(8)} | Total Profit: ${((currentBalance - initialBalance)).toFixed(8)}`);
             await executeRoll(Mybet, 49.5);
+            lastBet = Number(parseFloat(Mybet));
             initialWins = initialWins + 1;
             lastBalance = Number(parseFloat(currentBalance));
             previousBetId = Number(parseFloat(currentBetId));
             currentBetId = await waitForBetCompletion(previousBetId);
         }
         if (((currentBetId > previousBetId) && (betAttemptCount >= 1)) && (lastWinsFlag == 0) && (currentBalance == Number(((lastBalance - lastBet) * 1).toFixed(8))) && (losses == (initialLosses + 1)) && (wins == initialWins)) {
-            console.log(`[CONFIRMED] #${currentBetId} | Balance: ${currentBalance.toFixed(8)} | Bet: ${(activeBet * 1).toFixed(8)} | Total Profit: ${((currentBalance - initialBalance)).toFixed(8)}`);
+            console.log(`[CONFIRMED] #${currentBetId} | Balance: ${currentBalance.toFixed(8)} | Bet: ${(Mybet * 1).toFixed(8)} | Total Profit: ${((currentBalance - initialBalance)).toFixed(8)}`);
             lastBet = Number(parseFloat(Mybet));
             await executeRoll(Mybet, 49.5); 
             initialLosses = initialLosses + 1;
@@ -265,8 +215,9 @@ async function startMainLoop() {
             previousBetId = Number(parseFloat(currentBetId));
             currentBetId = await waitForBetCompletion(previousBetId);
         }
+    }
         await sleep(1);
-        await startMainLoop()
+        await startMainLoop();
 }
 
 async function waitForBetCompletion(targetBetId) {
