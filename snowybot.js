@@ -1,59 +1,26 @@
-// ============================================================================
-// BET EXECUTION
-// ============================================================================
+const startingPocketChange = Number(shakeThePiggyBank());
+const tinyPeanutSize = Number((startingPocketChange / 1440000).toFixed(8));
+const backupPeanut = Number(tinyPeanutSize);
+const tenPeanuts = Number(tinyPeanutSize * 10);
 
-const initialBalance = Number(getPlatformBalance());
-const beatsbase = Number((initialBalance / 1440000).toFixed(8));
-const beatsbasetwo = Number(beatsbase);
-const tenTimesBase = Number(beatsbase * 10);
-const fourTimesBase = Number(beatsbase * 4);
-const sevenTimesBase = Number(beatsbase * 7);
-const eightTimesBase = Number(beatsbase * 8);
-const thirtyTwoTimesBase = Number(beatsbase * 32);
+var walletStash = startingPocketChange;
+var areWeRichYet = false;
+var oopsieCounter = 0;
+var previousWalletState = Number(parseFloat(walletStash));
+var oldTicketStub = 0;
+var shinyNewTicket = 0;
+let totalSessionWins = Number(countTheHappyWins());
+let totalSessionLosses = Number(countTheSadLosses());
+let baseWinReference = Number(parseFloat(totalSessionWins));
+let baseLossReference = Number(parseFloat(totalSessionLosses));
+let currentWagerAmount = backupPeanut;    
+let previousWagerAmount = Number(parseFloat(currentWagerAmount));
+var luckyCoinFlip = 0;
+var checkpointJuice = parseFloat(startingPocketChange);
+var wobbleFactor = 1;
+var safetyCheckpoint = parseFloat((Math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10));
 
-var currentBalance = initialBalance;
-var balanceChunks = Math.floor(initialBalance / tenTimesBase);
-var isTargetReached = false;
-var betAttemptCount = 0;
-var balanceMultiplier = Math.floor(currentBalance / tenTimesBase);
-var lowerBracketLimit = balanceMultiplier * tenTimesBase;
-var lastBalance = Number(parseFloat(currentBalance));
-var checkpointBalance = parseFloat((Math.floor(initialBalance / (beatsbase * 10))) * (beatsbase * 10));
-var initialCheckpoint = parseFloat(checkpointBalance);
-var previousBetId = 0;
-var currentBetId = 0;
-const mult6_9 = Number(beatsbase * 6.9);
-const mult7_9 = Number(beatsbase * 7.9);
-var upperLowerThreshold = lowerBracketLimit + mult6_9;
-var upperUpperThreshold = lowerBracketLimit + mult7_9;
-let wins = Number(getDOMWins());
-let losses = Number(getDOMLosses());
-let initialWins = Number(parseFloat(wins));
-let initialLosses = Number(parseFloat(losses));
-let activeBet = beatsbasetwo;    
-let lastBet = Number(parseFloat(activeBet));
-var peakBalance = parseFloat(initialBalance); 
-var initialBalanceReference = parseFloat(initialBalance); 
-var activeTenTimes = (activeBet * 10);
-var activeMult6_9 = (activeBet * 6.9);
-var activeMult7_9 = (activeBet * 7.9);
-var activeChunks = Math.floor(currentBalance / activeTenTimes);
-var activeBaseBracket = activeChunks * activeTenTimes;
-var activeLowThreshold = activeBaseBracket + activeMult6_9;
-var activeHighThreshold = activeBaseBracket + activeMult7_9; 
-var activeTrackedBracket = parseFloat((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10));
-var safetyHandbrakeLimit = parseFloat(((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10))-(beatsbase * 100));
-var coolzy = Number((beatsbasetwo).toFixed(8));
-var lastWinsFlag = 0;
-var booze = parseFloat(initialBalance);
-let worry;
-var betAttemptkool = 0;
-var nottoofast = true;
-var fart = 1;
-var checkpoint = parseFloat((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10));
-var checkpointtwo = parseFloat(currentBalance);
-
-function getRollResult() {
+function inspectRollOutcome() {
     const rollElement = document.getElementById("me");
     if (rollElement && rollElement.firstChild && rollElement.firstChild.lastChild) {
         const targetChild = rollElement.firstChild.lastChild.firstChild.children[7];
@@ -64,169 +31,167 @@ function getRollResult() {
     }
 }
 
-function getDOMWins() {
+function countTheHappyWins() {
     return Number(document.getElementById("wins").innerText.replace(/,/g, ''));
 }
 
-function getDOMLosses() {
+function countTheSadLosses() {
     return Number(document.getElementById("losses").innerText.replace(/,/g, ''));
 }
 
-function getLatestBetId() {    
-    const lastWinsElement = document.getElementById("me");
-    if (lastWinsElement && lastWinsElement.firstChild && lastWinsElement.firstChild.lastChild) {
-        const betIdChild = lastWinsElement.firstChild.lastChild.firstChild.children[5];
-        if (betIdChild) {
-            const parsedId = parseInt(betIdChild.innerText.replace(/,/g, ''), 10);
-            if (!isNaN(parsedId) && parsedId > 0) {return parsedId;}
+function fetchLatestWagerId() {    
+    const tableContainer = document.getElementById("me");
+    if (tableContainer && tableContainer.firstChild && tableContainer.firstChild.lastChild) {
+        const rowElement = tableContainer.firstChild.lastChild.firstChild.children[5];
+        if (rowElement) {
+            const parsedWagerId = parseInt(rowElement.innerText.replace(/,/g, ''), 10);
+            if (!isNaN(parsedWagerId) && parsedWagerId > 0) {return parsedWagerId;}
         }
     }
 }
 
-function getPlatformBalance() {
-    const balanceElement = document.getElementById("pct_balance");
-    if (!balanceElement) return Number(0);
-    const parsedBalance = Number(parseFloat(parseFloat(balanceElement.value || balanceElement.innerText).toFixed(8)));
+function shakeThePiggyBank() {
+    const balanceInput = document.getElementById("pct_balance");
+    if (!balanceInput) return Number(0);
+    const parsedBalance = Number(parseFloat(parseFloat(balanceInput.value || balanceInput.innerText).toFixed(8)));
     return isNaN(parsedBalance) ? Number(0) : parsedBalance;
 }
 
-async function clickMinButton() {
+async function clickMinimumBetButton() {
     const minButton = document.getElementById("b_min");
     if (minButton) minButton.click();
 }
 
-async function setWinChance(chance = 49.5) {
+async function configureWinOdds(chanceValue = 49.5) {
     const chanceInput = document.getElementById("pct_chance");
     if (chanceInput) {
-        chanceInput.value = chance;
+        chanceInput.value = chanceValue;
         chanceInput.dispatchEvent(new Event('input', { bubbles: true }));
         chanceInput.dispatchEvent(new Event('change', { bubbles: true }));
     }
 }
 
-async function setBetSize(amount) {
+async function applyStakeAmount(stakeValue) {
     const betInput = document.getElementById("pct_bet");
     if (betInput) {
-        const formattedAmount = parseFloat(amount).toFixed(8);
+        const formattedAmount = parseFloat(stakeValue).toFixed(8);
         betInput.value = formattedAmount;
         betInput.dispatchEvent(new Event('input', { bubbles: true }));
         betInput.dispatchEvent(new Event('change', { bubbles: true }));
     }
 }
 
-async function clickLowBetButton() {
-   const lowButton = document.getElementById("a_lo");
-        if (lowButton) {
-            lowButton.click();
+async function triggerRollAction() {
+   const lowRollButton = document.getElementById("a_lo");
+        if (lowRollButton) {
+            lowRollButton.click();
             return true;
         } else {
             console.error("[ERROR] Could not find #a_lo element to place roll.");
-            await clickLowBetButton();
+            await triggerRollAction();
         }
 }
 
-async function executeRoll(amount, chance = 49.5) {
-    await clickMinButton();
-    await setWinChance(chance);
-    await setBetSize(amount);
-    await clickLowBetButton(); 
+async function executePlacementRoutine(targetStake, winChance = 49.5) {
+    await clickMinimumBetButton();
+    await configureWinOdds(winChance);
+    await applyStakeAmount(targetStake);
+    await triggerRollAction(); 
 }
 
-function sleep(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+function pauseExecution(delayMilliseconds) {
+    return new Promise((resolvePromiseInstance) => setTimeout(resolvePromiseInstance, delayMilliseconds));
 }
 
-async function Getmybet(active) {
-        currentBalance = getPlatformBalance();
-        activeBet = parseFloat(active);
+async function calculateNextProgressionStep(incomingWager) {
+        walletStash = shakeThePiggyBank();
+        currentWagerAmount = parseFloat(incomingWager);
 
-        if (currentBalance>=(checkpoint+((beatsbase * 10)*fart))){
-            activeBet = beatsbasetwo;
-            fart = 1;
-            booze = parseFloat((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10));
-            checkpoint = parseFloat((Math.floor(currentBalance / (beatsbase * 10))) * (beatsbase * 10));
+        if (walletStash >= (safetyCheckpoint + ((tinyPeanutSize * 10) * wobbleFactor))) {
+            currentWagerAmount = backupPeanut;
+            wobbleFactor = 1;
+            checkpointJuice = parseFloat((Math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10));
+            safetyCheckpoint = parseFloat((Math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10));
         } 
-        if ((activeBet<(beatsbasetwo*1.5))&&(currentBalance > (booze + (activeBet * 6.9)))) {
-            activeBet = (activeBet * 2);
-            booze = parseFloat(currentBalance);
+        if ((currentWagerAmount < (backupPeanut * 1.5)) && (walletStash > (checkpointJuice + (currentWagerAmount * 6.9)))) {
+            currentWagerAmount = (currentWagerAmount * 2);
+            checkpointJuice = parseFloat(walletStash);
         }    
-        if ((activeBet<(beatsbasetwo*1.5))&&(currentBalance < (booze - (activeBet * 2.9)))) {
-            activeBet = (activeBet * 2);
-            booze = parseFloat(currentBalance);
+        if ((currentWagerAmount < (backupPeanut * 1.5)) && (walletStash < (checkpointJuice - (currentWagerAmount * 2.9)))) {
+            currentWagerAmount = (currentWagerAmount * 2);
+            checkpointJuice = parseFloat(walletStash);
         } 
-        if ((activeBet>(beatsbasetwo*1.5))&&(currentBalance > (booze + (activeBet * 4.9))) ) {
-            activeBet = (activeBet * 2);
-            booze = parseFloat(currentBalance);
-        }  
-        if ((activeBet>(beatsbasetwo*1.5))&&(currentBalance < (booze - (activeBet * 4.9))) ) {
-            activeBet = (activeBet * 2);
-            fart = 0;
-            booze = parseFloat(currentBalance);
+        if ((currentWagerAmount > (backupPeanut * 1.5)) && (walletStash > (checkpointJuice + (currentWagerAmount * 4.9)))) {
+            currentWagerAmount = (currentWagerAmount * 2);
+            checkpointJuice = parseFloat(walletStash);
+        }   
+        if ((currentWagerAmount > (backupPeanut * 1.5)) && (walletStash < (checkpointJuice - (currentWagerAmount * 4.9)))) {
+            currentWagerAmount = (currentWagerAmount * 2);
+            wobbleFactor = 0;
+            checkpointJuice = parseFloat(walletStash);
         }    
 
-        let formactiveBet = parseFloat(activeBet); 
-        let migraine = Number(formactiveBet);
-        let friction =  Number((migraine*1).toFixed(8));
-        return friction; 
+        let calculatedStake = parseFloat(currentWagerAmount); 
+        let normalizedStake = Number(calculatedStake);
+        let finalizedStake = Number((normalizedStake * 1).toFixed(8));
+        return finalizedStake; 
 }
 
-
-
-async function startMainLoop() {
-     currentBalance = getPlatformBalance();
-     if ((currentBalance == Number(((lastBalance + lastBet) * 1).toFixed(8)))||(currentBalance == Number(((lastBalance - lastBet) * 1).toFixed(8)))||(betAttemptCount == 0)){
-        var Mybet = await Getmybet(lastBet);
-        if (currentBalance >= 144) {
+async function runPrimaryBettingLoop() {
+     walletStash = shakeThePiggyBank();
+     if ((walletStash == Number(((previousWalletState + previousWagerAmount) * 1).toFixed(8))) || (walletStash == Number(((previousWalletState - previousWagerAmount) * 1).toFixed(8))) || (oopsieCounter == 0)) {
+        var computedNextBet = await calculateNextProgressionStep(previousWagerAmount);
+        if (walletStash >= 144) {
             console.log(`TARGET REACHED. Halting execution.`);
             return;
         }
-        let rollResultVal = getRollResult();
-        if (rollResultVal < 49.5000) {
-            lastWinsFlag = 1;
+        let currentRollVal = inspectRollOutcome();
+        if (currentRollVal < 49.5000) {
+            luckyCoinFlip = 1;
         }
-        if (rollResultVal >= 49.5000) {
-            lastWinsFlag = 0;
+        if (currentRollVal >= 49.5000) {
+            luckyCoinFlip = 0;
         }    
-        wins = Number(getDOMWins());
-        losses = Number(getDOMLosses()); 
-        if ((currentBetId == previousBetId) && (betAttemptCount == 0)) {
-            console.log(`[CONFIRMED] #${currentBetId} | Balance: ${currentBalance.toFixed(8)} | Bet: ${(Mybet * 1).toFixed(8)} | Total Profit: ${((currentBalance - initialBalance)).toFixed(8)}`);
-            await executeRoll(Mybet, 49.5);
-            lastBet = Number(parseFloat(Mybet));
-            previousBetId = Number(parseFloat(currentBetId));
-            betAttemptCount = betAttemptCount+1 
-            currentBetId = await waitForBetCompletion(previousBetId);
+        totalSessionWins = Number(countTheHappyWins());
+        totalSessionLosses = Number(countTheSadLosses()); 
+        if ((shinyNewTicket == oldTicketStub) && (oopsieCounter == 0)) {
+            console.log(`[CONFIRMED] #${shinyNewTicket} | Balance: ${walletStash.toFixed(8)} | Bet: ${(computedNextBet * 1).toFixed(8)} | Total Profit: ${((walletStash - startingPocketChange)).toFixed(8)}`);
+            await executePlacementRoutine(computedNextBet, 49.5);
+            previousWagerAmount = Number(parseFloat(computedNextBet));
+            oldTicketStub = Number(parseFloat(shinyNewTicket));
+            oopsieCounter = oopsieCounter + 1;
+            shinyNewTicket = await waitForBetResultConfirmation(oldTicketStub);
         }    
-        if (((currentBetId > previousBetId) && (betAttemptCount >= 1)) && (lastWinsFlag == 1) && (currentBalance == Number(((lastBalance + lastBet) * 1).toFixed(8))) && (wins == (initialWins + 1)) && (losses == initialLosses)) {
-            console.log(`[CONFIRMED] #${currentBetId} | Balance: ${currentBalance.toFixed(8)} | Bet: ${(Mybet * 1).toFixed(8)} | Total Profit: ${((currentBalance - initialBalance)).toFixed(8)}`);
-            await executeRoll(Mybet, 49.5);
-            lastBet = Number(parseFloat(Mybet));
-            initialWins = initialWins + 1;
-            lastBalance = Number(parseFloat(currentBalance));
-            previousBetId = Number(parseFloat(currentBetId));
-            currentBetId = await waitForBetCompletion(previousBetId);
+        if (((shinyNewTicket > oldTicketStub) && (oopsieCounter >= 1)) && (luckyCoinFlip == 1) && (walletStash == Number(((previousWalletState + previousWagerAmount) * 1).toFixed(8))) && (totalSessionWins == (baseWinReference + 1)) && (totalSessionLosses == baseLossReference)) {
+            console.log(`[CONFIRMED] #${shinyNewTicket} | Balance: ${walletStash.toFixed(8)} | Bet: ${(computedNextBet * 1).toFixed(8)} | Total Profit: ${((walletStash - startingPocketChange)).toFixed(8)}`);
+            await executePlacementRoutine(computedNextBet, 49.5);
+            previousWagerAmount = Number(parseFloat(computedNextBet));
+            baseWinReference = baseWinReference + 1;
+            previousWalletState = Number(parseFloat(walletStash));
+            oldTicketStub = Number(parseFloat(shinyNewTicket));
+            shinyNewTicket = await waitForBetResultConfirmation(oldTicketStub);
         }
-        if (((currentBetId > previousBetId) && (betAttemptCount >= 1)) && (lastWinsFlag == 0) && (currentBalance == Number(((lastBalance - lastBet) * 1).toFixed(8))) && (losses == (initialLosses + 1)) && (wins == initialWins)) {
-            console.log(`[CONFIRMED] #${currentBetId} | Balance: ${currentBalance.toFixed(8)} | Bet: ${(Mybet * 1).toFixed(8)} | Total Profit: ${((currentBalance - initialBalance)).toFixed(8)}`);
-            lastBet = Number(parseFloat(Mybet));
-            await executeRoll(Mybet, 49.5); 
-            initialLosses = initialLosses + 1;
-            lastBalance = Number(parseFloat(currentBalance));
-            previousBetId = Number(parseFloat(currentBetId));
-            currentBetId = await waitForBetCompletion(previousBetId);
+        if (((shinyNewTicket > oldTicketStub) && (oopsieCounter >= 1)) && (luckyCoinFlip == 0) && (walletStash == Number(((previousWalletState - previousWagerAmount) * 1).toFixed(8))) && (totalSessionLosses == (baseLossReference + 1)) && (totalSessionWins == baseWinReference)) {
+            console.log(`[CONFIRMED] #${shinyNewTicket} | Balance: ${walletStash.toFixed(8)} | Bet: ${(computedNextBet * 1).toFixed(8)} | Total Profit: ${((walletStash - startingPocketChange)).toFixed(8)}`);
+            previousWagerAmount = Number(parseFloat(computedNextBet));
+            await executePlacementRoutine(computedNextBet, 49.5); 
+            baseLossReference = baseLossReference + 1;
+            previousWalletState = Number(parseFloat(walletStash));
+            oldTicketStub = Number(parseFloat(shinyNewTicket));
+            shinyNewTicket = await waitForBetResultConfirmation(oldTicketStub);
         }
     }
-        await sleep(1);
-        await startMainLoop();
+        await pauseExecution(1);
+        await runPrimaryBettingLoop();
 }
 
-async function waitForBetCompletion(targetBetId) {
-    return new Promise((resolve) => {
-        const pollInterval = setInterval(() => {
-            const latestId = getLatestBetId();
-            if ((latestId > targetBetId) || isTargetReached) {
-                resolve(latestId);
-                clearInterval(pollInterval);
+async function waitForBetResultConfirmation(targetBetId) {
+    return new Promise((resolvePromise) => {
+        const pollingIntervalTimer = setInterval(() => {
+            const detectedBetId = fetchLatestWagerId();
+            if ((detectedBetId > targetBetId) || areWeRichYet) {
+                resolvePromise(detectedBetId);
+                clearInterval(pollingIntervalTimer);
                 return;
             }
         }, 0.00001);
@@ -236,7 +201,7 @@ async function waitForBetCompletion(targetBetId) {
 // INITIALIZATION & LAUNCH
 // ============================================================================
 
-void (async function init() {
+void (async function initializeBotEngine() {
     console.log("[INIT] SnowyBot starting execution...");
-    await startMainLoop();
+    await runPrimaryBettingLoop();
 })();
