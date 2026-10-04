@@ -4,9 +4,12 @@ import asyncio
 import json
 import math
 import os
+import shutil
 import subprocess
 import sys
 import time
+
+import pwinput
 from selenium import webdriver
 from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.webdriver.common.by import By
@@ -20,10 +23,10 @@ os.environ["no_proxy"] = os.environ["NO_PROXY"] = (
     os.environ.get("no_proxy", "") + ",localhost,127.0.0.1,127.0.0.53,0.0.0.0"
 ).strip(",")
 
-STATE_FILE = "~/bot_state.json"
-LOG_OUT = "~/bot_output.log"
-LOG_ERR = "~/bot_error.log"
-GECKO_PATH = "~/geckodriver"
+STATE_FILE = "/home/r36s/bot_state.json"
+LOG_OUT = "/home/r36s/bot_output.log"
+LOG_ERR = "/home/r36s/bot_error.log"  # Fixed missing slash typo
+GECKO_PATH = "/home/r36s/geckodriver"
 
 # Global Selenium Driver and Credentials
 driver = None
@@ -59,15 +62,13 @@ last_observed_balance = 0.0
 
 
 def reset_session():
-    import shutil
-
-    profile_path = "~/.mozilla/firefox/bot_profile"
+    profile_path = "/home/r36s/.mozilla/firefox/bot_profile"
     if os.path.exists(profile_path):
         try:
             shutil.rmtree(profile_path)
             print("[System] Cleared old Firefox bot profile.")
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[System] Could not clear bot profile: {e}")
     time.sleep(1)
 
 
@@ -136,6 +137,7 @@ def daemonize():
 # STATE PERSISTENCE HELPERS
 # ============================================================================
 
+
 def load_state():
     if os.path.exists(STATE_FILE):
         try:
@@ -181,6 +183,7 @@ def save_state():
 # DOM INTERACTION HELPERS
 # ============================================================================
 
+
 def safe_float(val, default=0.0):
     try:
         cleaned = str(val).strip().replace(",", "")
@@ -216,7 +219,12 @@ def count_the_sad_losses():
 
 def fetch_latest_wager_id():
     try:
-        script = 'return document.getElementById("me").firstElementChild.lastElementChild.firstElementChild.children[5].innerText;'
+        script = """
+        var me = document.getElementById("me");
+        if (!me || !me.firstElementChild || !me.firstElementChild.lastElementChild || !me.firstElementChild.lastElementChild.firstElementChild) return 0;
+        var row = me.firstElementChild.lastElementChild.firstElementChild;
+        return row.children[5] ? row.children[5].innerText : 0;
+        """
         res = driver.execute_script(script)
         val = int(safe_float(res, 0))
         return val if val > 0 else 0
@@ -226,7 +234,12 @@ def fetch_latest_wager_id():
 
 def inspect_roll_outcome():
     try:
-        script = 'return document.getElementById("me").firstElementChild.lastElementChild.firstElementChild.children[7].innerText;'
+        script = """
+        var me = document.getElementById("me");
+        if (!me || !me.firstElementChild || !me.firstElementChild.lastElementChild || !me.firstElementChild.lastElementChild.firstElementChild) return -1;
+        var row = me.firstElementChild.lastElementChild.firstElementChild;
+        return row.children[7] ? row.children[7].innerText : -1;
+        """
         res = driver.execute_script(script)
         return safe_float(res, -1.0)
     except Exception:
@@ -290,6 +303,7 @@ def log_bet_info(bet_amount, current_profit, wager_id):
 # STRATEGY & BETTING LOGIC
 # ============================================================================
 
+
 def calculate_next_progression_step(incoming_wager):
     global walletStash, currentWagerAmount, wobbleFactor, checkpointJuice, safetyCheckpoint
 
@@ -299,22 +313,34 @@ def calculate_next_progression_step(incoming_wager):
     if walletStash >= (safetyCheckpoint + ((tinyPeanutSize * 10) * wobbleFactor)):
         currentWagerAmount = backupPeanut
         wobbleFactor = 1.0
-        checkpointJuice = float(math.floor(walletStash / (tinyPeanutSize * 10)) * (tinyPeanutSize * 10))
-        safetyCheckpoint = float(math.floor(walletStash / (tinyPeanutSize * 10)) * (tinyPeanutSize * 10))
+        checkpointJuice = float(
+            math.floor(walletStash / (tinyPeanutSize * 10)) * (tinyPeanutSize * 10)
+        )
+        safetyCheckpoint = float(
+            math.floor(walletStash / (tinyPeanutSize * 10)) * (tinyPeanutSize * 10)
+        )
 
-    if (currentWagerAmount < (backupPeanut * 1.5)) and (walletStash > (checkpointJuice + (currentWagerAmount * 6.9))):
+    if (currentWagerAmount < (backupPeanut * 1.5)) and (
+        walletStash > (checkpointJuice + (currentWagerAmount * 6.9))
+    ):
         currentWagerAmount = currentWagerAmount * 2
         checkpointJuice = float(walletStash)
 
-    if (currentWagerAmount < (backupPeanut * 1.5)) and (walletStash < (checkpointJuice - (currentWagerAmount * 2.9))):
+    if (currentWagerAmount < (backupPeanut * 1.5)) and (
+        walletStash < (checkpointJuice - (currentWagerAmount * 2.9))
+    ):
         currentWagerAmount = currentWagerAmount * 2
         checkpointJuice = float(walletStash)
 
-    if (currentWagerAmount > (backupPeanut * 1.5)) and (walletStash > (checkpointJuice + (currentWagerAmount * 4.9))):
+    if (currentWagerAmount > (backupPeanut * 1.5)) and (
+        walletStash > (checkpointJuice + (currentWagerAmount * 4.9))
+    ):
         currentWagerAmount = currentWagerAmount * 2
         checkpointJuice = float(walletStash)
 
-    if (currentWagerAmount > (backupPeanut * 1.5)) and (walletStash < (checkpointJuice - (currentWagerAmount * 4.9))):
+    if (currentWagerAmount > (backupPeanut * 1.5)) and (
+        walletStash < (checkpointJuice - (currentWagerAmount * 4.9))
+    ):
         currentWagerAmount = currentWagerAmount * 2
         wobbleFactor = 0.0
         checkpointJuice = float(walletStash)
@@ -336,7 +362,7 @@ def init_bot():
 
     # Dismiss modal if present
     try:
-        close_btn = WebDriverWait(driver, 35).until(
+        close_btn = WebDriverWait(driver, 15).until(
             EC.element_to_be_clickable((By.CSS_SELECTOR, "a.fancybox-item.fancybox-close"))
         )
         close_btn.click()
@@ -344,7 +370,7 @@ def init_bot():
         pass
 
     time.sleep(2)
-    account_link = WebDriverWait(driver, 35).until(
+    account_link = WebDriverWait(driver, 20).until(
         EC.element_to_be_clickable((By.LINK_TEXT, "Account"))
     )
     account_link.click()
@@ -359,35 +385,78 @@ def init_bot():
     driver.find_element(By.ID, "myok").click()
 
     print("[System] Authentication submitted, waiting for login stabilization...")
-    time.sleep(35)
+    time.sleep(10)
 
     # Initialize State
     savedState = load_state()
 
     current_bal = shake_the_piggy_bank()
-    startingPocketChange = savedState.get("startingPocketChange", current_bal) if savedState else current_bal
-    tinyPeanutSize = savedState.get("tinyPeanutSize", round(startingPocketChange / 1440000.0, 8)) if savedState else round(startingPocketChange / 1440000.0, 8)
+    startingPocketChange = (
+        savedState.get("startingPocketChange", current_bal) if savedState else current_bal
+    )
+    tinyPeanutSize = (
+        savedState.get("tinyPeanutSize", round(startingPocketChange / 1440000.0, 8))
+        if savedState
+        else round(startingPocketChange / 1440000.0, 8)
+    )
     backupPeanut = savedState.get("backupPeanut", tinyPeanutSize) if savedState else tinyPeanutSize
-    tenPeanuts = savedState.get("tenPeanuts", tinyPeanutSize * 10) if savedState else (tinyPeanutSize * 10)
+    tenPeanuts = (
+        savedState.get("tenPeanuts", tinyPeanutSize * 10) if savedState else (tinyPeanutSize * 10)
+    )
 
     walletStash = savedState.get("walletStash", startingPocketChange) if savedState else startingPocketChange
     areWeRichYet = savedState.get("areWeRichYet", False) if savedState else False
     oopsieCounter = savedState.get("oopsieCounter", 0) if savedState else 0
-    previousWalletState = savedState.get("previousWalletState", float(walletStash)) if savedState else float(walletStash)
+    previousWalletState = (
+        savedState.get("previousWalletState", float(walletStash)) if savedState else float(walletStash)
+    )
     oldTicketStub = savedState.get("oldTicketStub", 0) if savedState else 0
     shinyNewTicket = savedState.get("shinyNewTicket", 0) if savedState else 0
 
-    totalSessionWins = savedState.get("totalSessionWins", count_the_happy_wins()) if savedState else count_the_happy_wins()
-    totalSessionLosses = savedState.get("totalSessionLosses", count_the_sad_losses()) if savedState else count_the_sad_losses()
-    baseWinReference = savedState.get("baseWinReference", float(totalSessionWins)) if savedState else float(totalSessionWins)
-    baseLossReference = savedState.get("baseLossReference", float(totalSessionLosses)) if savedState else float(totalSessionLosses)
-    currentWagerAmount = savedState.get("currentWagerAmount", backupPeanut) if savedState else backupPeanut
-    previousWagerAmount = savedState.get("previousWagerAmount", float(currentWagerAmount)) if savedState else float(currentWagerAmount)
+    totalSessionWins = (
+        savedState.get("totalSessionWins", count_the_happy_wins())
+        if savedState
+        else count_the_happy_wins()
+    )
+    totalSessionLosses = (
+        savedState.get("totalSessionLosses", count_the_sad_losses())
+        if savedState
+        else count_the_sad_losses()
+    )
+    baseWinReference = (
+        savedState.get("baseWinReference", float(totalSessionWins))
+        if savedState
+        else float(totalSessionWins)
+    )
+    baseLossReference = (
+        savedState.get("baseLossReference", float(totalSessionLosses))
+        if savedState
+        else float(totalSessionLosses)
+    )
+    currentWagerAmount = (
+        savedState.get("currentWagerAmount", backupPeanut) if savedState else backupPeanut
+    )
+    previousWagerAmount = (
+        savedState.get("previousWagerAmount", float(currentWagerAmount))
+        if savedState
+        else float(currentWagerAmount)
+    )
 
     luckyCoinFlip = savedState.get("luckyCoinFlip", 0) if savedState else 0
-    checkpointJuice = savedState.get("checkpointJuice", float(startingPocketChange)) if savedState else float(startingPocketChange)
+    checkpointJuice = (
+        savedState.get("checkpointJuice", float(startingPocketChange))
+        if savedState
+        else float(startingPocketChange)
+    )
     wobbleFactor = savedState.get("wobbleFactor", 1.0) if savedState else 1.0
-    safetyCheckpoint = savedState.get("safetyCheckpoint", float(math.floor(walletStash / (tinyPeanutSize * 10)) * (tinyPeanutSize * 10))) if savedState else float(math.floor(walletStash / (tinyPeanutSize * 10)) * (tinyPeanutSize * 10))
+    safetyCheckpoint = (
+        savedState.get(
+            "safetyCheckpoint",
+            float(math.floor(walletStash / (tinyPeanutSize * 10)) * (tinyPeanutSize * 10)),
+        )
+        if savedState
+        else float(math.floor(walletStash / (tinyPeanutSize * 10)) * (tinyPeanutSize * 10))
+    )
 
     last_observed_balance = current_bal
     last_balance_change_time = time.time()
@@ -419,7 +488,7 @@ async def runPrimaryBettingLoop():
             if (shinyNewTicket > oldTicketStub) or (oopsieCounter == 0):
                 computedNextBet = calculate_next_progression_step(previousWagerAmount)
 
-                if walletStash >= 144:
+                if walletStash >= 144000:
                     print(f"[System] TARGET REACHED ({walletStash}). Halting execution.")
                     if os.path.exists(STATE_FILE):
                         try:
@@ -472,28 +541,27 @@ if __name__ == "__main__":
 
     # Prompt credentials in terminal
     username = input("User: ")
-    import pwinput
-
     password = pwinput.pwinput(prompt="Pass: ", mask="*")
     code_2fa = pwinput.pwinput(prompt="2FA: ", mask="*")
     print("Initializing...")
 
-    # Uncomment below to detach process into background after entering credentials:
-    # daemonize()
-
-    # Configure Headless Firefox Options
+    # Options setup
     opt = Options()
     opt.add_argument("--headless")
-    opt.set_preference("network.proxy.type", 1)
-    for k in ["http", "ssl", "socks"]:
-        opt.set_preference(f"network.proxy.{k}", "0.0.0.0")
-        opt.set_preference(f"network.proxy.{k}_port", 1)
+    opt.set_preference("network.proxy.type", 0)  # Direct connection (no dummy proxy trap)
 
-    wh = list(set(["localhost", "127.0.0.1", "0.0.0.0"] + get_g_hosts()))
-    opt.set_preference("network.proxy.no_proxies_on", ", ".join(wh))
+    # Optional binary location: Only override if firefox executable exists at specific path
+    if os.path.exists("/usr/bin/firefox"):
+        opt.binary_location = "/usr/bin/firefox"
+    elif os.path.exists("/usr/bin/firefox-esr"):
+        opt.binary_location = "/usr/bin/firefox-esr"
 
     print("[System] Initializing Firefox headless browser driver...")
-    driver = webdriver.Firefox(service=Service(GECKO_PATH), options=opt)
+    service_kwargs = {}
+    if os.path.exists(GECKO_PATH):
+        service_kwargs["executable_path"] = GECKO_PATH
+
+    driver = webdriver.Firefox(service=Service(**service_kwargs), options=opt)
 
     try:
         init_bot()
