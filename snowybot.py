@@ -25,7 +25,7 @@ os.environ["no_proxy"] = os.environ["NO_PROXY"] = (
 
 STATE_FILE = "/home/r36s/bot_state.json"
 LOG_OUT = "/home/r36s/bot_output.log"
-LOG_ERR = "/home/r36s/bot_error.log"  # Fixed missing slash typo
+LOG_ERR = "/home/r36s/bot_error.log"
 GECKO_PATH = "/home/r36s/geckodriver"
 
 # Global Selenium Driver and Credentials
@@ -290,13 +290,13 @@ def execute_placement_routine(target_stake, win_chance=49.5):
     return trigger_roll_action()
 
 
-def log_bet_info(bet_amount, current_profit, wager_id):
+def log_bet_info(bet_amount, current_balance, current_profit, wager_id):
     global last_logged_wager_id
     if wager_id and wager_id > 0 and wager_id == last_logged_wager_id:
         return
     if wager_id and wager_id > 0:
         last_logged_wager_id = wager_id
-    print(f"Bet: {bet_amount:.8f} | Profit: {current_profit:.8f}")
+    print(f"Bet: {bet_amount:.8f} | Balance: {current_balance:.8f} | Profit: {current_profit:.8f}")
 
 
 # ============================================================================
@@ -359,7 +359,7 @@ def init_bot():
 
     print("[System] Navigating to just-dice.com...")
     driver.get("https://just-dice.com")
-
+    time.sleep(40)
     # Dismiss modal if present
     try:
         close_btn = WebDriverWait(driver, 15).until(
@@ -369,7 +369,7 @@ def init_bot():
     except Exception:
         pass
 
-    time.sleep(2)
+    time.sleep(10)
     account_link = WebDriverWait(driver, 20).until(
         EC.element_to_be_clickable((By.LINK_TEXT, "Account"))
     )
@@ -385,7 +385,7 @@ def init_bot():
     driver.find_element(By.ID, "myok").click()
 
     print("[System] Authentication submitted, waiting for login stabilization...")
-    time.sleep(10)
+    time.sleep(40)
 
     # Initialize State
     savedState = load_state()
@@ -460,6 +460,7 @@ def init_bot():
 
     last_observed_balance = current_bal
     last_balance_change_time = time.time()
+    print(f"[System] Initial Balance loaded: {walletStash:.8f}")
 
 
 async def runPrimaryBettingLoop():
@@ -489,7 +490,7 @@ async def runPrimaryBettingLoop():
                 computedNextBet = calculate_next_progression_step(previousWagerAmount)
 
                 if walletStash >= 144000:
-                    print(f"[System] TARGET REACHED ({walletStash}). Halting execution.")
+                    print(f"[System] TARGET REACHED ({walletStash:.8f}). Halting execution.")
                     if os.path.exists(STATE_FILE):
                         try:
                             os.remove(STATE_FILE)
@@ -508,7 +509,7 @@ async def runPrimaryBettingLoop():
                 totalSessionLosses = count_the_sad_losses()
 
                 if oopsieCounter == 0:
-                    log_bet_info(computedNextBet, walletStash - startingPocketChange, shinyNewTicket)
+                    log_bet_info(computedNextBet, walletStash, walletStash - startingPocketChange, shinyNewTicket)
                     execute_placement_routine(computedNextBet, 49.5)
                     previousWagerAmount = float(computedNextBet)
                     previousWalletState = float(walletStash)
@@ -516,7 +517,7 @@ async def runPrimaryBettingLoop():
                     oopsieCounter += 1
                     save_state()
                 elif shinyNewTicket > oldTicketStub:
-                    log_bet_info(computedNextBet, walletStash - startingPocketChange, shinyNewTicket)
+                    log_bet_info(computedNextBet, walletStash, walletStash - startingPocketChange, shinyNewTicket)
                     execute_placement_routine(computedNextBet, 49.5)
                     previousWagerAmount = float(computedNextBet)
 
