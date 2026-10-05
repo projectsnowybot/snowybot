@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 import ast
 import asyncio
@@ -470,7 +471,6 @@ async def runPrimaryBettingLoop():
     global totalSessionWins, totalSessionLosses
 
     while True:
-        try:
             walletStash = shake_the_piggy_bank()
             if walletStash != last_observed_balance:
                 last_observed_balance = walletStash
@@ -516,25 +516,27 @@ async def runPrimaryBettingLoop():
                     oldTicketStub = float(shinyNewTicket)
                     oopsieCounter += 1
                     save_state()
-                elif shinyNewTicket > oldTicketStub:
+                elif shinyNewTicket > oldTicketStub and luckyCoinFlip == 0 and totalSessionLosses==baseLossReference+1 and totalSessionWins==baseWinReference:
                     log_bet_info(computedNextBet, walletStash, walletStash - startingPocketChange, shinyNewTicket)
                     execute_placement_routine(computedNextBet, 49.5)
                     previousWagerAmount = float(computedNextBet)
-
-                    if luckyCoinFlip == 1:
-                        baseWinReference += 1
-                    else:
-                        baseLossReference += 1
-
+                    baseLossReference = float(totalSessionLosses)
+                    previousWalletState = float(walletStash)
+                    oldTicketStub = float(shinyNewTicket)
+                    oopsieCounter += 1
+                    save_state()
+                elif shinyNewTicket > oldTicketStub and luckyCoinFlip == 1 and totalSessionWins==baseWinReference+1 and totalSessionLosses==baseLossReference:
+                    log_bet_info(computedNextBet, walletStash, walletStash - startingPocketChange, shinyNewTicket)
+                    execute_placement_routine(computedNextBet, 49.5)
+                    previousWagerAmount = float(computedNextBet)
+                    baseWinReference = float(totalSessionWins)
                     previousWalletState = float(walletStash)
                     oldTicketStub = float(shinyNewTicket)
                     oopsieCounter += 1
                     save_state()
 
-        except Exception as loopErr:
-            print(f"[Error] Execution error recovered: {loopErr}")
 
-        await asyncio.sleep(0.05)
+            await asyncio.sleep(0.05)
 
 
 if __name__ == "__main__":
