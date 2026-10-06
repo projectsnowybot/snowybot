@@ -1,41 +1,21 @@
-
-#!/usr/bin/env python3
-import ast
-import asyncio
+#!/usr/init/env python3
 import json
 import math
 import os
-import shutil
-import subprocess
 import sys
 import time
-
+import shutil
+import tempfile
 import pwinput
-from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException, TimeoutException
-from selenium.webdriver.common.by import By
-from selenium.webdriver.firefox.options import Options
-from selenium.webdriver.firefox.service import Service
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
 
-# Local bypass to prevent urllib3 crashes
-os.environ["no_proxy"] = os.environ["NO_PROXY"] = (
-    os.environ.get("no_proxy", "") + ",localhost,127.0.0.1,127.0.0.53,0.0.0.0"
-).strip(",")
+from PyQt5.QtCore import QUrl, QTimer, Qt
+from PyQt5.QtWidgets import QApplication, QMainWindow
+from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineProfile, QWebEnginePage
 
 STATE_FILE = "/home/r36s/bot_state.json"
 LOG_OUT = "/home/r36s/bot_output.log"
 LOG_ERR = "/home/r36s/bot_error.log"
-GECKO_PATH = "/home/r36s/geckodriver"
 
-# Global Selenium Driver and Credentials
-driver = None
-username = ""
-password = ""
-code_2fa = ""
-
-# Global Strategy State Variables
 startingPocketChange = 0.0
 tinyPeanutSize = 0.0
 backupPeanut = 0.0
@@ -60,83 +40,12 @@ safetyCheckpoint = 0.0
 last_logged_wager_id = 0
 last_balance_change_time = time.time()
 last_observed_balance = 0.0
+last_bet_timestamp = 0.0
 
-
-def reset_session():
-    profile_path = "/home/r36s/.mozilla/firefox/bot_profile"
-    if os.path.exists(profile_path):
-        try:
-            shutil.rmtree(profile_path)
-            print("[System] Cleared old Firefox bot profile.")
-        except Exception as e:
-            print(f"[System] Could not clear bot profile: {e}")
-    time.sleep(1)
-
-
-def get_g_hosts():
-    try:
-        r = subprocess.check_output(
-            ["gsettings", "get", "org.gnome.system.proxy", "ignore-hosts"],
-            text=True,
-        ).strip()
-        return ast.literal_eval(r)
-    except Exception:
-        return [
-            "localhost",
-            "127.0.0.1",
-            "just-dice.com",
-            "altquick.com",
-            "jsdelivr.net",
-            "jquery.com",
-            "cloudflareinsights.com",
-            "hcaptcha.com",
-            "gstatic.com",
-            "googleapis.com",
-            "highcharts.com",
-            "192.168.1.1",
-        ]
-
-
-def daemonize():
-    """Disconnects process from terminal cleanly via UNIX Double-Fork."""
-    print("Detaching process and launching background daemon...")
-    print(f"Standard output: {LOG_OUT}")
-    print(f"Error output: {LOG_ERR}\n")
-    try:
-        pid = os.fork()
-        if pid > 0:
-            sys.exit(0)
-    except OSError as e:
-        print(f"Fork #1 failed: {e}", file=sys.stderr)
-        sys.exit(1)
-
-    os.chdir("/")
-    os.setsid()
-    os.umask(0)
-
-    try:
-        pid = os.fork()
-        if pid > 0:
-            sys.exit(0)
-    except OSError as e:
-        print(f"Fork #2 failed: {e}", file=sys.stderr)
-        sys.exit(1)
-
-    sys.stdout.flush()
-    sys.stderr.flush()
-
-    si = open(os.devnull, "r")
-    so = open(LOG_OUT, "a+", encoding="utf-8")
-    se = open(LOG_ERR, "a+", encoding="utf-8")
-
-    os.dup2(si.fileno(), sys.stdin.fileno())
-    os.dup2(so.fileno(), sys.stdout.fileno())
-    os.dup2(se.fileno(), sys.stderr.fileno())
-
-
-# ============================================================================
-# STATE PERSISTENCE HELPERS
-# ============================================================================
+username = ""
+password = ""
+code_2fa = ""
+logged_in = False
 
 
 def load_state():
@@ -180,135 +89,9 @@ def save_state():
         print(f"[Error] Failed to save state file: {e}")
 
 
-# ============================================================================
-# DOM INTERACTION HELPERS
-# ============================================================================
-
-
-def safe_float(val, default=0.0):
-    try:
-        cleaned = str(val).strip().replace(",", "")
-        return float(cleaned)
-    except (ValueError, TypeError):
-        return default
-
-
-def shake_the_piggy_bank():
-    try:
-        element = driver.find_element(By.ID, "pct_balance")
-        val = element.get_attribute("value") or element.text
-        return round(safe_float(val, 0.0), 8)
-    except Exception:
-        return 0.0
-
-
-def count_the_happy_wins():
-    try:
-        el = driver.find_element(By.ID, "wins")
-        return int(safe_float(el.text, 0))
-    except Exception:
-        return 0
-
-
-def count_the_sad_losses():
-    try:
-        el = driver.find_element(By.ID, "losses")
-        return int(safe_float(el.text, 0))
-    except Exception:
-        return 0
-
-
-def fetch_latest_wager_id():
-    try:
-        script = """
-        var me = document.getElementById("me");
-        if (!me || !me.firstElementChild || !me.firstElementChild.lastElementChild || !me.firstElementChild.lastElementChild.firstElementChild) return 0;
-        var row = me.firstElementChild.lastElementChild.firstElementChild;
-        return row.children[5] ? row.children[5].innerText : 0;
-        """
-        res = driver.execute_script(script)
-        val = int(safe_float(res, 0))
-        return val if val > 0 else 0
-    except Exception:
-        return 0
-
-
-def inspect_roll_outcome():
-    try:
-        script = """
-        var me = document.getElementById("me");
-        if (!me || !me.firstElementChild || !me.firstElementChild.lastElementChild || !me.firstElementChild.lastElementChild.firstElementChild) return -1;
-        var row = me.firstElementChild.lastElementChild.firstElementChild;
-        return row.children[7] ? row.children[7].innerText : -1;
-        """
-        res = driver.execute_script(script)
-        return safe_float(res, -1.0)
-    except Exception:
-        return -1.0
-
-
-def click_minimum_bet_button():
-    try:
-        driver.find_element(By.ID, "b_min").click()
-    except Exception:
-        pass
-
-
-def configure_win_odds(chance_value=49.5):
-    try:
-        chance_input = driver.find_element(By.ID, "pct_chance")
-        chance_input.clear()
-        chance_input.send_keys(str(chance_value))
-    except Exception:
-        pass
-
-
-def apply_stake_amount(stake_value):
-    try:
-        bet_input = driver.find_element(By.ID, "pct_bet")
-        formatted = f"{float(stake_value):.8f}"
-        bet_input.clear()
-        bet_input.send_keys(formatted)
-    except Exception:
-        pass
-
-
-def trigger_roll_action():
-    try:
-        driver.find_element(By.ID, "a_lo").click()
-        return True
-    except Exception as e:
-        print(f"[ERROR] Could not find #a_lo element to place roll: {e}")
-        return False
-
-
-def execute_placement_routine(target_stake, win_chance=49.5):
-    global last_balance_change_time
-    last_balance_change_time = time.time()
-    click_minimum_bet_button()
-    configure_win_odds(win_chance)
-    apply_stake_amount(target_stake)
-    return trigger_roll_action()
-
-
-def log_bet_info(bet_amount, current_balance, current_profit, wager_id):
-    global last_logged_wager_id
-    if wager_id and wager_id > 0 and wager_id == last_logged_wager_id:
-        return
-    if wager_id and wager_id > 0:
-        last_logged_wager_id = wager_id
-    print(f"Bet: {bet_amount:.8f} | Balance: {current_balance:.8f} | Profit: {current_profit:.8f}")
-
-
-# ============================================================================
-# STRATEGY & BETTING LOGIC
-# ============================================================================
-
-
 def calculate_next_progression_step(incoming_wager):
     global walletStash, currentWagerAmount, wobbleFactor, checkpointJuice, safetyCheckpoint
 
-    walletStash = shake_the_piggy_bank()
     currentWagerAmount = float(incoming_wager)
 
     if walletStash >= (safetyCheckpoint + ((tinyPeanutSize * 10) * wobbleFactor)):
@@ -324,251 +107,412 @@ def calculate_next_progression_step(incoming_wager):
     if (currentWagerAmount < (backupPeanut * 1.5)) and (
         walletStash > (checkpointJuice + (currentWagerAmount * 6.9))
     ):
-        currentWagerAmount = currentWagerAmount * 2
+        currentWagerAmount *= 2
         checkpointJuice = float(walletStash)
 
     if (currentWagerAmount < (backupPeanut * 1.5)) and (
         walletStash < (checkpointJuice - (currentWagerAmount * 2.9))
     ):
-        currentWagerAmount = currentWagerAmount * 2
+        currentWagerAmount *= 2
         checkpointJuice = float(walletStash)
 
     if (currentWagerAmount > (backupPeanut * 1.5)) and (
         walletStash > (checkpointJuice + (currentWagerAmount * 4.9))
     ):
-        currentWagerAmount = currentWagerAmount * 2
+        currentWagerAmount *= 2
         checkpointJuice = float(walletStash)
 
     if (currentWagerAmount > (backupPeanut * 1.5)) and (
         walletStash < (checkpointJuice - (currentWagerAmount * 4.9))
     ):
-        currentWagerAmount = currentWagerAmount * 2
+        currentWagerAmount *= 2
         wobbleFactor = 0.0
         checkpointJuice = float(walletStash)
 
     return round(float(currentWagerAmount), 8)
 
 
-def init_bot():
-    global driver, username, password, code_2fa
-    global startingPocketChange, tinyPeanutSize, backupPeanut, tenPeanuts
-    global walletStash, areWeRichYet, oopsieCounter, previousWalletState
-    global oldTicketStub, shinyNewTicket, totalSessionWins, totalSessionLosses
-    global baseWinReference, baseLossReference, currentWagerAmount, previousWagerAmount
-    global luckyCoinFlip, checkpointJuice, wobbleFactor, safetyCheckpoint
-    global last_observed_balance, last_balance_change_time
+def log_bet_info(bet_amount, current_balance, current_profit, wager_id):
+    global last_logged_wager_id
+    if wager_id and wager_id > 0 and wager_id == last_logged_wager_id:
+        return
+    if wager_id and wager_id > 0:
+        last_logged_wager_id = wager_id
+    print(f"Bet: {bet_amount:.8f} | Balance: {current_balance:.8f} | Profit: {current_profit:+.8f}")
 
-    print("[System] Navigating to just-dice.com...")
-    driver.get("https://just-dice.com")
-    time.sleep(40)
-    # Dismiss modal if present
-    try:
-        close_btn = WebDriverWait(driver, 15).until(
-            EC.element_to_be_clickable((By.CSS_SELECTOR, "a.fancybox-item.fancybox-close"))
+
+class SnowyBotWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Snowy Bot - PySide5 Reset-Compounding Engine")
+        self.resize(1024, 768)
+
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.runPrimaryBettingLoop)
+
+        self.start_full_login_sequence()
+
+    def init_browser_engine(self):
+        if hasattr(self, 'temp_dir') and self.temp_dir and os.path.exists(self.temp_dir):
+            try:
+                shutil.rmtree(self.temp_dir)
+            except Exception:
+                pass
+
+        self.temp_dir = tempfile.mkdtemp(prefix="snowy_profile_")
+        profile_name = f"SnowyProfile_{time.time()}"
+        profile = QWebEngineProfile(profile_name, self)
+        profile.setPersistentStoragePath(self.temp_dir)
+        profile.setCachePath(self.temp_dir)
+
+        profile.setHttpUserAgent(
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         )
-        close_btn.click()
-    except Exception:
-        pass
 
-    time.sleep(10)
-    account_link = WebDriverWait(driver, 20).until(
-        EC.element_to_be_clickable((By.LINK_TEXT, "Account"))
-    )
-    account_link.click()
+        page = QWebEnginePage(profile, self)
+        self.browser = QWebEngineView()
+        self.browser.setPage(page)
+        self.setCentralWidget(self.browser)
 
-    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "myuser")))
-    driver.find_element(By.ID, "myuser").clear()
-    driver.find_element(By.ID, "myuser").send_keys(username)
-    driver.find_element(By.ID, "mypass").clear()
-    driver.find_element(By.ID, "mypass").send_keys(password)
-    driver.find_element(By.ID, "mycode").clear()
-    driver.find_element(By.ID, "mycode").send_keys(code_2fa)
-    driver.find_element(By.ID, "myok").click()
+    def start_full_login_sequence(self):
+        global logged_in
+        logged_in = False
+        
+        self.init_browser_engine()
 
-    print("[System] Authentication submitted, waiting for login stabilization...")
-    time.sleep(40)
+        print(f"[System] Created isolated storage at {self.temp_dir}. Navigating to just-dice.com...")
+        self.browser.setUrl(QUrl("https://just-dice.com"))
 
-    # Initialize State
-    savedState = load_state()
+        print("[System] Waiting 40 seconds for page scripts and WebSocket engine to stabilize...")
+        QTimer.singleShot(40000, self.open_account_tab)
 
-    current_bal = shake_the_piggy_bank()
-    startingPocketChange = (
-        savedState.get("startingPocketChange", current_bal) if savedState else current_bal
-    )
-    tinyPeanutSize = (
-        savedState.get("tinyPeanutSize", round(startingPocketChange / 1440000.0, 8))
-        if savedState
-        else round(startingPocketChange / 1440000.0, 8)
-    )
-    backupPeanut = savedState.get("backupPeanut", tinyPeanutSize) if savedState else tinyPeanutSize
-    tenPeanuts = (
-        savedState.get("tenPeanuts", tinyPeanutSize * 10) if savedState else (tinyPeanutSize * 10)
-    )
+    def open_account_tab(self):
+        print("[System] Dismissing modals and locating Account/Login interface...")
+        js_nav = """
+        (function() {
+            var closeBtn = document.querySelector('a.fancybox-item.fancybox-close');
+            if (closeBtn) { closeBtn.click(); }
+            
+            if (document.getElementById('myuser')) { return 'ALREADY_VISIBLE'; }
 
-    walletStash = savedState.get("walletStash", startingPocketChange) if savedState else startingPocketChange
-    areWeRichYet = savedState.get("areWeRichYet", False) if savedState else False
-    oopsieCounter = savedState.get("oopsieCounter", 0) if savedState else 0
-    previousWalletState = (
-        savedState.get("previousWalletState", float(walletStash)) if savedState else float(walletStash)
-    )
-    oldTicketStub = savedState.get("oldTicketStub", 0) if savedState else 0
-    shinyNewTicket = savedState.get("shinyNewTicket", 0) if savedState else 0
+            var elements = Array.from(document.querySelectorAll('a, button, span'));
+            var target = elements.find(el => {
+                var txt = el.textContent.trim().toLowerCase();
+                return txt === 'account' || txt === 'login' || txt.includes('account');
+            });
 
-    totalSessionWins = (
-        savedState.get("totalSessionWins", count_the_happy_wins())
-        if savedState
-        else count_the_happy_wins()
-    )
-    totalSessionLosses = (
-        savedState.get("totalSessionLosses", count_the_sad_losses())
-        if savedState
-        else count_the_sad_losses()
-    )
-    baseWinReference = (
-        savedState.get("baseWinReference", float(totalSessionWins))
-        if savedState
-        else float(totalSessionWins)
-    )
-    baseLossReference = (
-        savedState.get("baseLossReference", float(totalSessionLosses))
-        if savedState
-        else float(totalSessionLosses)
-    )
-    currentWagerAmount = (
-        savedState.get("currentWagerAmount", backupPeanut) if savedState else backupPeanut
-    )
-    previousWagerAmount = (
-        savedState.get("previousWagerAmount", float(currentWagerAmount))
-        if savedState
-        else float(currentWagerAmount)
-    )
+            if (target) { 
+                target.click(); 
+                return 'CLICKED'; 
+            }
+            return 'NOT_FOUND';
+        })();
+        """
+        self.browser.page().runJavaScript(js_nav, self._after_account_click)
 
-    luckyCoinFlip = savedState.get("luckyCoinFlip", 0) if savedState else 0
-    checkpointJuice = (
-        savedState.get("checkpointJuice", float(startingPocketChange))
-        if savedState
-        else float(startingPocketChange)
-    )
-    wobbleFactor = savedState.get("wobbleFactor", 1.0) if savedState else 1.0
-    safetyCheckpoint = (
-        savedState.get(
-            "safetyCheckpoint",
-            float(math.floor(walletStash / (tinyPeanutSize * 10)) * (tinyPeanutSize * 10)),
+    def _after_account_click(self, status):
+        print(f"[System] Account tab navigation result: {status}")
+        print("[System] Waiting 40 seconds for account tab and login input fields...")
+        QTimer.singleShot(40000, self.submit_login_credentials)
+
+    def submit_login_credentials(self):
+        global username, password, code_2fa
+        print("[System] Submitting authentication payload to DOM...")
+
+        tfa_val = code_2fa.strip() if code_2fa else ""
+
+        js_login = f"""
+        (function() {{
+            var closeBtn = document.querySelector('a.fancybox-item.fancybox-close');
+            if (closeBtn) {{ closeBtn.click(); }}
+
+            var uEl = document.getElementById('myuser');
+            var pEl = document.getElementById('mypass');
+            var cEl = document.getElementById('mycode');
+            var okEl = document.getElementById('myok');
+
+            if (!uEl || !pEl || !okEl) {{
+                var elements = Array.from(document.querySelectorAll('a, button, span'));
+                var target = elements.find(el => el.textContent.trim().toLowerCase() === 'account');
+                if (target) {{ target.click(); }}
+                return 'MISSING_FIELDS';
+            }}
+
+            uEl.value = "{username}";
+            uEl.dispatchEvent(new Event('input', {{ bubbles: true }}));
+            uEl.dispatchEvent(new Event('change', {{ bubbles: true }}));
+
+            pEl.value = "{password}";
+            pEl.dispatchEvent(new Event('input', {{ bubbles: true }}));
+            pEl.dispatchEvent(new Event('change', {{ bubbles: true }}));
+
+            var tfa = "{tfa_val}";
+            if (cEl && tfa !== "") {{ 
+                cEl.value = tfa; 
+                cEl.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                cEl.dispatchEvent(new Event('change', {{ bubbles: true }}));
+            }}
+
+            okEl.click();
+            return 'SUBMITTED';
+        }})();
+        """
+        self.browser.page().runJavaScript(js_login, self._after_login_submitted)
+
+    def _after_login_submitted(self, status):
+        print(f"[System] Credentials action: {status}")
+        if status == 'MISSING_FIELDS':
+            print("[System] Form elements not ready yet. Retrying submission in 5 seconds...")
+            QTimer.singleShot(5000, self.submit_login_credentials)
+        else:
+            print("[System] Waiting 40 seconds for post-login stabilization...")
+            QTimer.singleShot(40000, self.init_bot_state)
+
+    def init_bot_state(self):
+        js_init_data = """
+        (function() {
+            var bal = document.getElementById('pct_balance') ? document.getElementById('pct_balance').value : '0';
+            var me = document.getElementById('me');
+            var wagerId = 0;
+            if (me && me.firstElementChild && me.firstElementChild.lastElementChild && me.firstElementChild.lastElementChild.firstElementChild) {
+                var row = me.firstElementChild.lastElementChild.firstElementChild;
+                wagerId = row.children[5] ? row.children[5].innerText : 0;
+            }
+            return JSON.stringify({balance: bal, wagerId: wagerId});
+        })();
+        """
+        self.browser.page().runJavaScript(js_init_data, self._init_state_callback)
+
+    def _init_state_callback(self, res_json):
+        global startingPocketChange, tinyPeanutSize, backupPeanut, tenPeanuts
+        global walletStash, areWeRichYet, oopsieCounter, previousWalletState
+        global oldTicketStub, shinyNewTicket, totalSessionWins, totalSessionLosses
+        global baseWinReference, baseLossReference, currentWagerAmount, previousWagerAmount
+        global luckyCoinFlip, checkpointJuice, wobbleFactor, safetyCheckpoint
+        global last_observed_balance, last_balance_change_time, logged_in, last_bet_timestamp
+
+        try:
+            data = json.loads(res_json)
+            current_bal = float(str(data.get("balance", "0")).replace(",", "").strip())
+            current_wager = int(float(str(data.get("wagerId", "0")).replace(",", "").strip()))
+        except Exception:
+            current_bal = 0.0
+            current_wager = 0
+
+        if current_bal <= 0 and not logged_in:
+            print("[System] Balance read 0 or session pending... re-checking balance in 5s")
+            QTimer.singleShot(5000, self.init_bot_state)
+            return
+
+        savedState = load_state()
+
+        startingPocketChange = (
+            savedState.get("startingPocketChange", current_bal) if savedState else current_bal
         )
-        if savedState
-        else float(math.floor(walletStash / (tinyPeanutSize * 10)) * (tinyPeanutSize * 10))
-    )
+        tinyPeanutSize = (
+            savedState.get("tinyPeanutSize", round(startingPocketChange / 1440000.0, 8))
+            if savedState
+            else round(startingPocketChange / 1440000.0, 8)
+        )
+        backupPeanut = savedState.get("backupPeanut", tinyPeanutSize) if savedState else tinyPeanutSize
+        tenPeanuts = (
+            savedState.get("tenPeanuts", tinyPeanutSize * 10) if savedState else (tinyPeanutSize * 10)
+        )
 
-    last_observed_balance = current_bal
-    last_balance_change_time = time.time()
-    print(f"[System] Initial Balance loaded: {walletStash:.8f}")
+        walletStash = savedState.get("walletStash", startingPocketChange) if savedState else startingPocketChange
+        areWeRichYet = savedState.get("areWeRichYet", False) if savedState else False
+        oopsieCounter = savedState.get("oopsieCounter", 0) if savedState else 0
+        previousWalletState = (
+            savedState.get("previousWalletState", float(walletStash)) if savedState else float(walletStash)
+        )
+        
+        oldTicketStub = current_wager
+        shinyNewTicket = current_wager
 
+        totalSessionWins = savedState.get("totalSessionWins", 0) if savedState else 0
+        totalSessionLosses = savedState.get("totalSessionLosses", 0) if savedState else 0
+        baseWinReference = (
+            savedState.get("baseWinReference", float(totalSessionWins))
+            if savedState
+            else float(totalSessionWins)
+        )
+        baseLossReference = (
+            savedState.get("baseLossReference", float(totalSessionLosses))
+            if savedState
+            else float(totalSessionLosses)
+        )
+        currentWagerAmount = (
+            savedState.get("currentWagerAmount", backupPeanut) if savedState else backupPeanut
+        )
+        previousWagerAmount = (
+            savedState.get("previousWagerAmount", float(currentWagerAmount))
+            if savedState
+            else float(currentWagerAmount)
+        )
 
-async def runPrimaryBettingLoop():
-    global driver, walletStash, last_observed_balance, last_balance_change_time
-    global shinyNewTicket, oldTicketStub, oopsieCounter, previousWagerAmount
-    global previousWalletState, luckyCoinFlip, baseWinReference, baseLossReference
-    global totalSessionWins, totalSessionLosses
+        luckyCoinFlip = savedState.get("luckyCoinFlip", 0) if savedState else 0
+        checkpointJuice = (
+            savedState.get("checkpointJuice", float(startingPocketChange))
+            if savedState
+            else float(startingPocketChange)
+        )
+        wobbleFactor = savedState.get("wobbleFactor", 1.0) if savedState else 1.0
+        safetyCheckpoint = (
+            savedState.get(
+                "safetyCheckpoint",
+                float(math.floor(walletStash / (tinyPeanutSize * 10)) * (tinyPeanutSize * 10)),
+            )
+            if savedState
+            else float(math.floor(walletStash / (tinyPeanutSize * 10)) * (tinyPeanutSize * 10))
+        )
 
-    while True:
-            walletStash = shake_the_piggy_bank()
-            if walletStash != last_observed_balance:
-                last_observed_balance = walletStash
+        last_observed_balance = current_bal
+        last_balance_change_time = time.time()
+        last_bet_timestamp = 0.0
+        logged_in = True
+
+        print(f"[System] Login verified! Balance loaded: {walletStash:.8f} (Baseline: {startingPocketChange:.8f})")
+        self.timer.start(50)
+
+    def runPrimaryBettingLoop(self):
+        if not logged_in:
+            return
+
+        js_fetch_dom = """
+        (function() {
+            var bal = document.getElementById('pct_balance') ? document.getElementById('pct_balance').value : '0';
+            var wins = document.getElementById('wins') ? document.getElementById('wins').innerText : '0';
+            var losses = document.getElementById('losses') ? document.getElementById('losses').innerText : '0';
+            var me = document.getElementById('me');
+            var wagerId = 0, rollVal = -1;
+            if (me && me.firstElementChild && me.firstElementChild.lastElementChild && me.firstElementChild.lastElementChild.firstElementChild) {
+                var row = me.firstElementChild.lastElementChild.firstElementChild;
+                wagerId = row.children[5] ? row.children[5].innerText : 0;
+                rollVal = row.children[7] ? row.children[7].innerText : -1;
+            }
+            return JSON.stringify({balance: bal, wins: wins, losses: losses, wagerId: wagerId, rollVal: rollVal});
+        })();
+        """
+        self.browser.page().runJavaScript(js_fetch_dom, self._process_loop_data)
+
+    def _process_loop_data(self, res_json):
+        global walletStash, last_observed_balance, last_balance_change_time
+        global shinyNewTicket, oldTicketStub, oopsieCounter, previousWagerAmount
+        global previousWalletState, luckyCoinFlip, baseWinReference, baseLossReference
+        global totalSessionWins, totalSessionLosses, last_bet_timestamp
+
+        try:
+            data = json.loads(res_json)
+            walletStash = float(str(data.get("balance", "0")).replace(",", "").strip())
+            totalSessionWins = int(float(str(data.get("wins", "0")).replace(",", "").strip()))
+            totalSessionLosses = int(float(str(data.get("losses", "0")).replace(",", "").strip()))
+            shinyNewTicket = int(float(str(data.get("wagerId", "0")).replace(",", "").strip()))
+            currentRollVal = float(str(data.get("rollVal", "-1")).replace(",", "").strip())
+        except Exception:
+            return
+
+        if walletStash != last_observed_balance:
+            last_observed_balance = walletStash
+            last_balance_change_time = time.time()
+
+        # Compounding Milestone Check: 10% profit reached -> wipe state file & restart login sequence
+        if walletStash >= (startingPocketChange * 1.10):
+            profit = walletStash - startingPocketChange
+            print(f"\n[Compound Milestone] 10% profit reached (+{profit:.8f})!")
+            print(f"[Compound Milestone] Wiping state file and restarting login with new baseline: {walletStash:.8f}")
+            
+            self.timer.stop()
+            if os.path.exists(STATE_FILE):
+                try:
+                    os.remove(STATE_FILE)
+                except Exception:
+                    pass
+            
+            # Restart full login sequence with a clean state
+            self.start_full_login_sequence()
+            return
+
+        if time.time() - last_balance_change_time >= 30:
+            print("[Watchdog] Timeout: No successful activity for 30s. Restarting full login sequence...")
+            self.timer.stop()
+            last_balance_change_time = time.time()
+            self.start_full_login_sequence()
+            return
+
+        time_since_last_bet = time.time() - last_bet_timestamp
+        can_bet_by_time = (last_bet_timestamp == 0 or time_since_last_bet >= 1.5)
+
+        if (shinyNewTicket > oldTicketStub) or (oopsieCounter == 0) or can_bet_by_time:
+            computedNextBet = calculate_next_progression_step(previousWagerAmount)
+
+            if walletStash >= 144000:
+                print(f"[System] TARGET REACHED ({walletStash:.8f}). Halting execution.")
+                if os.path.exists(STATE_FILE):
+                    try:
+                        os.remove(STATE_FILE)
+                    except Exception:
+                        pass
+                sys.exit(0)
+
+            if 0 <= currentRollVal < 49.5000:
+                luckyCoinFlip = 1
+            elif currentRollVal >= 49.5000:
+                luckyCoinFlip = 0
+
+            should_place_bet = False
+
+            if oopsieCounter == 0 or can_bet_by_time:
+                should_place_bet = True
+            elif shinyNewTicket > oldTicketStub and luckyCoinFlip == 0 and totalSessionLosses == baseLossReference + 1 and totalSessionWins == baseWinReference:
+                should_place_bet = True
+                baseLossReference = float(totalSessionLosses)
+            elif shinyNewTicket > oldTicketStub and luckyCoinFlip == 1 and totalSessionWins == baseWinReference + 1 and totalSessionLosses == baseLossReference:
+                should_place_bet = True
+                baseWinReference = float(totalSessionWins)
+
+            if should_place_bet:
+                log_bet_info(computedNextBet, walletStash, walletStash - startingPocketChange, shinyNewTicket)
+
+                js_place_bet = f"""
+                (function() {{
+                    var bMin = document.getElementById('b_min');
+                    var pChance = document.getElementById('pct_chance');
+                    var pBet = document.getElementById('pct_bet');
+                    var aLo = document.getElementById('a_lo');
+
+                    if (bMin) bMin.click();
+                    if (pChance) {{ pChance.value = '49.5'; }}
+                    if (pBet) {{ pBet.value = '{computedNextBet:.8f}'; }}
+                    if (aLo) aLo.click();
+                }})();
+                """
+                self.browser.page().runJavaScript(js_place_bet)
+
+                previousWagerAmount = float(computedNextBet)
+                previousWalletState = float(walletStash)
+                if shinyNewTicket > 0:
+                    oldTicketStub = float(shinyNewTicket)
+                oopsieCounter += 1
+                
+                last_bet_timestamp = time.time()
                 last_balance_change_time = time.time()
-
-            # Watchdog timeout check (30s balance inactivity refresh)
-            if time.time() - last_balance_change_time >= 30:
-                print("[Watchdog] Balance static for 30s. Reloading page...")
-                last_balance_change_time = time.time()
-                driver.refresh()
-                await asyncio.sleep(10)
-                continue
-
-            shinyNewTicket = fetch_latest_wager_id()
-
-            if (shinyNewTicket > oldTicketStub) or (oopsieCounter == 0):
-                computedNextBet = calculate_next_progression_step(previousWagerAmount)
-
-                if walletStash >= 144000:
-                    print(f"[System] TARGET REACHED ({walletStash:.8f}). Halting execution.")
-                    if os.path.exists(STATE_FILE):
-                        try:
-                            os.remove(STATE_FILE)
-                        except Exception:
-                            pass
-                    driver.quit()
-                    sys.exit()
-
-                currentRollVal = inspect_roll_outcome()
-                if 0 <= currentRollVal < 49.5000:
-                    luckyCoinFlip = 1
-                elif currentRollVal >= 49.5000:
-                    luckyCoinFlip = 0
-
-                totalSessionWins = count_the_happy_wins()
-                totalSessionLosses = count_the_sad_losses()
-
-                if oopsieCounter == 0:
-                    log_bet_info(computedNextBet, walletStash, walletStash - startingPocketChange, shinyNewTicket)
-                    execute_placement_routine(computedNextBet, 49.5)
-                    previousWagerAmount = float(computedNextBet)
-                    previousWalletState = float(walletStash)
-                    oldTicketStub = float(shinyNewTicket)
-                    oopsieCounter += 1
-                    save_state()
-                elif shinyNewTicket > oldTicketStub and luckyCoinFlip == 0 and totalSessionLosses==baseLossReference+1 and totalSessionWins==baseWinReference:
-                    log_bet_info(computedNextBet, walletStash, walletStash - startingPocketChange, shinyNewTicket)
-                    execute_placement_routine(computedNextBet, 49.5)
-                    previousWagerAmount = float(computedNextBet)
-                    baseLossReference = float(totalSessionLosses)
-                    previousWalletState = float(walletStash)
-                    oldTicketStub = float(shinyNewTicket)
-                    oopsieCounter += 1
-                    save_state()
-                elif shinyNewTicket > oldTicketStub and luckyCoinFlip == 1 and totalSessionWins==baseWinReference+1 and totalSessionLosses==baseLossReference:
-                    log_bet_info(computedNextBet, walletStash, walletStash - startingPocketChange, shinyNewTicket)
-                    execute_placement_routine(computedNextBet, 49.5)
-                    previousWagerAmount = float(computedNextBet)
-                    baseWinReference = float(totalSessionWins)
-                    previousWalletState = float(walletStash)
-                    oldTicketStub = float(shinyNewTicket)
-                    oopsieCounter += 1
-                    save_state()
+                save_state()
 
 
-            await asyncio.sleep(0.05)
+def main():
+    global username, password, code_2fa
+
+    username = input("User: ")
+    password = pwinput.pwinput(prompt="Pass: ", mask="*")
+    code_2fa = pwinput.pwinput(prompt="2FA (optional, press Enter to skip): ", mask="*")
+    print("Initializing PySide5 Reset-Compounding Headless Engine...")
+
+    os.environ["QT_QPA_PLATFORM"] = "offscreen"
+
+    app = QApplication(sys.argv)
+    window = SnowyBotWindow()
+    sys.exit(app.exec_())
 
 
 if __name__ == "__main__":
-    reset_session()
-
-    # Prompt credentials in terminal
-    username = input("User: ")
-    password = pwinput.pwinput(prompt="Pass: ", mask="*")
-    code_2fa = pwinput.pwinput(prompt="2FA: ", mask="*")
-    print("Initializing...")
-
-    # Options setup
-    opt = Options()
-    opt.add_argument("--headless")
-    opt.set_preference("network.proxy.type", 0)  # Direct connection (no dummy proxy trap)
-
-    # Optional binary location: Only override if firefox executable exists at specific path
-    if os.path.exists("/usr/bin/firefox"):
-        opt.binary_location = "/usr/bin/firefox"
-    elif os.path.exists("/usr/bin/firefox-esr"):
-        opt.binary_location = "/usr/bin/firefox-esr"
-
-    print("[System] Initializing Firefox headless browser driver...")
-    service_kwargs = {}
-    if os.path.exists(GECKO_PATH):
-        service_kwargs["executable_path"] = GECKO_PATH
-
-    driver = webdriver.Firefox(service=Service(**service_kwargs), options=opt)
-
-    try:
-        init_bot()
-        asyncio.run(runPrimaryBettingLoop())
-    finally:
-        if driver:
-            driver.quit()
+    main()
