@@ -6,7 +6,7 @@ Prerequisites
 Ensure you have Python 3.8 or higher installed on your system. You can verify your Python version by running:
 Bash
 
-python3 --version
+    python3 --version
 
 Installation & Setup
 
@@ -17,7 +17,7 @@ Open your terminal and run the following commands and update package lists and i
 sudo apt update && sudo apt install -y python3-pip python3-pyqt5 python3-pyqt5.qtwebengine
 
 Install the required Python package for masked password/2FA inputs
-pip3 install pwinput
+    pip3 install pwinput
 
 (Note: Depending on your Linux distribution, you may need to run inside a Python virtual environment if system package managers restrict global pip installs).
 2. Windows
@@ -26,13 +26,14 @@ Open Command Prompt or PowerShell as Administrator and run:
 DOS
 
 Install PyQt5 and pwinput via pip
-pip install PyQt5 pwinput
+
+    pip install PyQt5 pwinput
 
 3. macOS
 
 Open your Terminal app and install the dependencies using pip3:
 Install required packages
-pip3 install PyQt5 pwinput
+    pip3 install PyQt5 pwinput
 
 How to Use
 
@@ -44,7 +45,7 @@ How to Use
 
 Bash
 
-python3 snowybot.py
+    python3 snowybot.py
 
     When prompted by the console, enter your Just-Dice username, password, and optional 2FA code (press Enter to skip 2FA if you do not have it enabled):
 
