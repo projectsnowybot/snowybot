@@ -14,9 +14,11 @@ Choose your operating system below to install the required dependencies (PyQt5 a
 1. Linux (Ubuntu / Debian / Fedora / Arch)
 
 Open your terminal and run the following commands and update package lists and install python3-pip if not already installed
+
     sudo apt update && sudo apt install -y python3-pip python3-pyqt5 python3-pyqt5.qtwebengine
 
 Install the required Python package for masked password/2FA inputs
+    
     pip3 install pwinput
 
 (Note: Depending on your Linux distribution, you may need to run inside a Python virtual environment if system package managers restrict global pip installs).
