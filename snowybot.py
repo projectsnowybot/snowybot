@@ -12,9 +12,9 @@ from PyQt5.QtCore import QUrl, QTimer, Qt
 from PyQt5.QtWidgets import QApplication, QMainWindow
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineProfile, QWebEnginePage
 
-STATE_FILE = "/home/r36s/bot_state.json"
-LOG_OUT = "/home/r36s/bot_output.log"
-LOG_ERR = "/home/r36s/bot_error.log"
+STATE_FILE = "bot_state.json"
+LOG_OUT = "bot_output.log"
+LOG_ERR = "bot_error.log"
 
 startingPocketChange = 0.0
 tinyPeanutSize = 0.0
@@ -440,7 +440,7 @@ class SnowyBotWindow(QMainWindow):
             return
 
         time_since_last_bet = time.time() - last_bet_timestamp
-        can_bet_by_time = (last_bet_timestamp == 0 or time_since_last_bet >= 1.5)
+        can_bet_by_time = (last_bet_timestamp == 0 or time_since_last_bet >= 0.01)
 
         if (shinyNewTicket > oldTicketStub) or (oopsieCounter == 0) or can_bet_by_time:
             computedNextBet = calculate_next_progression_step(previousWagerAmount)
