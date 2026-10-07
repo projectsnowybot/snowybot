@@ -13,13 +13,10 @@ Installation & Setup
 Choose your operating system below to install the required dependencies (PyQt5 and pwinput).
 1. Linux (Ubuntu / Debian / Fedora / Arch)
 
-Open your terminal and run the following commands:
-Bash
-
-# Update package lists and install python3-pip if not already installed
+Open your terminal and run the following commands and update package lists and install python3-pip if not already installed
 sudo apt update && sudo apt install -y python3-pip python3-pyqt5 python3-pyqt5.qtwebengine
 
-# Install the required Python package for masked password/2FA inputs
+Install the required Python package for masked password/2FA inputs
 pip3 install pwinput
 
 (Note: Depending on your Linux distribution, you may need to run inside a Python virtual environment if system package managers restrict global pip installs).
@@ -28,15 +25,13 @@ pip3 install pwinput
 Open Command Prompt or PowerShell as Administrator and run:
 DOS
 
-# Install PyQt5 and pwinput via pip
+Install PyQt5 and pwinput via pip
 pip install PyQt5 pwinput
 
 3. macOS
 
 Open your Terminal app and install the dependencies using pip3:
-Bash
-
-# Install required packages
+Install required packages
 pip3 install PyQt5 pwinput
 
 How to Use
