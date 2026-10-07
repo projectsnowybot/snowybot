@@ -1,79 +1,67 @@
-# Snowy Bot
+Snowy Bot - PySide5 Reset-Compounding Engine
 
-Snowy Bot is a Python-based automated compounding engine utilizing PyQt5 and QWebEngine to interact with browser-based interfaces.
+Snowy Bot is an automated, headless browser-based compounding engine built with Python and PyQt5. It operates on the just-dice.com platform using an isolated session storage profile.
+Prerequisites
 
----
+Ensure you have Python 3.8 or higher installed on your system. You can verify your Python version by running:
+Bash
 
-## Prerequisites
+python3 --version
 
-Ensure you have **Python 3.8+** installed on your system. You can verify your installation by running:
-```bash
-python --version
-```
-*(On some Linux distributions or macOS setups, you may need to use `python3` instead of `python`)*.
+Installation & Setup
 
----
+Choose your operating system below to install the required dependencies (PyQt5 and pwinput).
+1. Linux (Ubuntu / Debian / Fedora / Arch)
 
-## Installation Guide
+Open your terminal and run the following commands:
+Bash
 
-### 1. Clone or Download the Repository
-Save `snowybot.py` into a local directory of your choice, then open your terminal (or Command Prompt / PowerShell on Windows) and navigate to that directory:
-```bash
-cd path/to/snowy-bot-directory
-```
+# Update package lists and install python3-pip if not already installed
+sudo apt update && sudo apt install -y python3-pip python3-pyqt5 python3-pyqt5.qtwebengine
 
-### 2. Install Dependencies
+# Install the required Python package for masked password/2FA inputs
+pip3 install pwinput
 
-The script relies on `PyQt5`, `PyQtWebEngine`, and `pwinput`.
+(Note: Depending on your Linux distribution, you may need to run inside a Python virtual environment if system package managers restrict global pip installs).
+2. Windows
 
-#### **Linux (Ubuntu / Debian / Fedora / Arch)**
-On Linux, Qt requires platform support libraries. Install Python packages and system dependencies using your package manager:
+Open Command Prompt or PowerShell as Administrator and run:
+DOS
 
-* **Ubuntu / Debian:**
-  ```bash
-  sudo apt-get update
-  sudo apt-get install -y python3-pip python3-pyqt5 python3-pyqt5.qtwebengine
-  pip3 install pwinput
-  ```
-* **Fedora / RHEL:**
-  ```bash
-  sudo dnf install python3-pip python3-qt5 python3-qt5-webengine
-  pip install pwinput
-  ```
-* **Arch Linux:**
-  ```bash
-  sudo pacman -S python-pip python-pyqt5 python-pyqtwebengine
-  pip install pwinput
-  ```
+# Install PyQt5 and pwinput via pip
+pip install PyQt5 pwinput
 
-#### **Windows**
-Open **Command Prompt** or **PowerShell** as Administrator and run:
-```cmd
-pip install PyQt5 PyQtWebEngine pwinput
-```
+3. macOS
 
-#### **macOS**
-Open your terminal and install via `pip`:
-```bash
-pip3 install PyQt5 PyQtWebEngine pwinput
-```
-*(Note: If you encounter permission errors on macOS or Linux, append `--user` to the `pip install` command, or use a Python virtual environment).*
+Open your Terminal app and install the dependencies using pip3:
+Bash
 
----
+# Install required packages
+pip3 install PyQt5 pwinput
 
-## How to Use
+How to Use
 
-By default, the script runs in an **offscreen headless mode** (`QT_QPA_PLATFORM = "offscreen"`), meaning the browser window will execute in the background.
+    Make sure you have created your account and signed up on just-dice.com beforehand. You will need your account username and password during execution.
 
-1. Run the script from your terminal:
-   ```bash
-   python snowybot.py
-   ```
-   *(Use `python3 snowybot.py` if necessary)*.
+    Open a terminal or command prompt in the directory containing snowybot.py.
 
-2. Follow the secure interactive terminal prompts:
-   * **User:** Enter your account username.
-   * **Pass:** Enter your account password (hidden by masking characters).
-   * **2FA:** Enter your 2FA code if enabled, or simply press **Enter** to skip.
+    Run the script:
 
-3. The bot will automatically initialize an isolated browser profile, handle the authentication sequence, and begin the compounding session. Status updates and bet logs will print directly to your terminal.
+Bash
+
+python3 snowybot.py
+
+    When prompted by the console, enter your Just-Dice username, password, and optional 2FA code (press Enter to skip 2FA if you do not have it enabled):
+
+        User: your_username
+
+        Pass: **********
+
+        2FA (optional, press Enter to skip): [Enter code or leave blank]
+
+The script will launch an offscreen automated browser instance, navigate to just-dice.com, log into your account using your signup credentials, and start the automated reset-compounding betting loop.
+State & Logs
+
+    bot_state.json: Automatically tracks your session data, wallet stash, and compounding progress. If you wish to reset your baseline completely, delete this file before starting the script.
+
+    Milestone / Safety: The bot automatically halts if it reaches the target balance, or resets its baseline profile upon hitting a 10% compounding profit milestone.
