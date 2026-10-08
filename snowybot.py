@@ -1,3 +1,4 @@
+#!/usr/init/env python3
 import json
 import math
 import os
@@ -182,8 +183,8 @@ class SnowyBotWindow(QMainWindow):
         print(f"[System] Created isolated storage at {self.temp_dir}. Navigating to just-dice.com...")
         self.browser.setUrl(QUrl("https://just-dice.com"))
 
-        print("[System] Waiting 40 seconds for page scripts and WebSocket engine to stabilize...")
-        QTimer.singleShot(40000, self.open_account_tab)
+        print("[System] Waiting 10 seconds for page scripts and WebSocket engine to stabilize...")
+        QTimer.singleShot(10000, self.open_account_tab)
 
     def open_account_tab(self):
         print("[System] Dismissing modals and locating Account/Login interface...")
@@ -211,8 +212,8 @@ class SnowyBotWindow(QMainWindow):
 
     def _after_account_click(self, status):
         print(f"[System] Account tab navigation result: {status}")
-        print("[System] Waiting 40 seconds for account tab and login input fields...")
-        QTimer.singleShot(40000, self.submit_login_credentials)
+        print("[System] Waiting 10 seconds for account tab and login input fields...")
+        QTimer.singleShot(10000, self.submit_login_credentials)
 
     def submit_login_credentials(self):
         global username, password, code_2fa
@@ -262,10 +263,10 @@ class SnowyBotWindow(QMainWindow):
         print(f"[System] Credentials action: {status}")
         if status == 'MISSING_FIELDS':
             print("[System] Form elements not ready yet. Retrying submission in 5 seconds...")
-            QTimer.singleShot(5000, self.submit_login_credentials)
+            QTimer.singleShot(2000, self.submit_login_credentials)
         else:
-            print("[System] Waiting 40 seconds for post-login stabilization...")
-            QTimer.singleShot(40000, self.init_bot_state)
+            print("[System] Waiting 10 seconds for post-login stabilization...")
+            QTimer.singleShot(10000, self.init_bot_state)
 
     def init_bot_state(self):
         js_init_data = """
