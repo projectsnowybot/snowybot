@@ -1,4 +1,3 @@
-#!/usr/init/env python3
 import json
 import math
 import os
