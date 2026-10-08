@@ -29,7 +29,7 @@ DOS
 
 Install PyQt5 and pwinput via pip
 
-    pip install PyQt5 pwinput
+    pip install PyQt5 PyQtWebEngine pwinput
 
 3. macOS
 
