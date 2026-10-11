@@ -39,6 +39,7 @@ last_logged_wager_id = 0
 last_balance_change_time = time.time()
 last_observed_balance = 0.0
 last_bet_timestamp = time.time()
+last_activity_timestamp = time.time()
 
 watchdog_threshold = 10.0
 
@@ -99,10 +100,10 @@ def calculate_next_progression_step(incoming_wager):
         wobbleFactor = 1.0
         checkpointJuice = float(
             math.floor(walletStash / (tinyPeanutSize * 10)) * (tinyPeanutSize * 10)
-        )  # sets lower closest lower tenbasebets
+        )
         safetyCheckpoint = float(
             math.floor(walletStash / (tinyPeanutSize * 10)) * (tinyPeanutSize * 10)
-        )  # sets lower closest lower tenbasebets
+        )
 
     if (currentWagerAmount < (backupPeanut * 1.5)) and (
         walletStash > (checkpointJuice + (currentWagerAmount * 6.9))
@@ -291,7 +292,7 @@ class SnowyBotWindow(QMainWindow):
         global oldTicketStub, shinyNewTicket, totalSessionWins, totalSessionLosses
         global baseWinReference, baseLossReference, currentWagerAmount, previousWagerAmount
         global luckyCoinFlip, checkpointJuice, wobbleFactor, safetyCheckpoint
-        global last_observed_balance, last_balance_change_time, logged_in, last_bet_timestamp, watchdog_threshold
+        global last_observed_balance, last_balance_change_time, logged_in, last_bet_timestamp, last_activity_timestamp, watchdog_threshold
 
         try:
             data = json.loads(res_json)
@@ -373,6 +374,7 @@ class SnowyBotWindow(QMainWindow):
         current_time = time.time()
         last_balance_change_time = current_time
         last_bet_timestamp = current_time
+        last_activity_timestamp = current_time
         watchdog_threshold = 10.0
         logged_in = True
 
@@ -407,7 +409,7 @@ class SnowyBotWindow(QMainWindow):
         global walletStash, last_observed_balance, last_balance_change_time
         global shinyNewTicket, oldTicketStub, oopsieCounter, previousWagerAmount
         global previousWalletState, luckyCoinFlip, baseWinReference, baseLossReference
-        global totalSessionWins, totalSessionLosses, last_bet_timestamp
+        global totalSessionWins, totalSessionLosses, last_bet_timestamp, last_activity_timestamp
         global startingPocketChange, tinyPeanutSize, backupPeanut, tenPeanuts
         global currentWagerAmount, checkpointJuice, wobbleFactor, safetyCheckpoint
         global watchdog_threshold
@@ -427,14 +429,19 @@ class SnowyBotWindow(QMainWindow):
 
         current_time = time.time()
 
+        # Update activity timestamp only when a new bet result / ticket comes in or balance changes
         if walletStash > 0 and walletStash != last_observed_balance:
             last_balance_change_time = current_time
             last_observed_balance = float(walletStash)
+            last_activity_timestamp = current_time
+
+        if shinyNewTicket > oldTicketStub:
+            last_activity_timestamp = current_time
 
         elapsed_stagnation = current_time - last_balance_change_time
-        elapsed_bet_stall = current_time - last_bet_timestamp
+        elapsed_activity_stall = current_time - last_activity_timestamp
 
-        if elapsed_bet_stall >= watchdog_threshold:
+        if elapsed_activity_stall >= watchdog_threshold:
             print(f"[Watchdog] Bets have stalled, reloading page and rebetting...", flush=True)
             self.trigger_watchdog_refresh()
             return
@@ -530,10 +537,11 @@ class SnowyBotWindow(QMainWindow):
         reload_delay = 30000 if walletStash <= 0 else 10000
         
         def resume_after_refresh():
-            global last_balance_change_time, last_bet_timestamp
+            global last_balance_change_time, last_bet_timestamp, last_activity_timestamp
             t_now = time.time()
             last_balance_change_time = t_now
             last_bet_timestamp = t_now
+            last_activity_timestamp = t_now
             self.timer.start(50)
             print(f"[Watchdog] Stream stabilized. Resuming betting loop.", flush=True)
 
