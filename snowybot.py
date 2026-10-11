@@ -99,34 +99,33 @@ def calculate_next_progression_step(incoming_wager):
         wobbleFactor = 1.0
         checkpointJuice = float(
             math.floor(walletStash / (tinyPeanutSize * 10)) * (tinyPeanutSize * 10)
-        )
+        )  # sets lower closest lower tenbasebets
         safetyCheckpoint = float(
             math.floor(walletStash / (tinyPeanutSize * 10)) * (tinyPeanutSize * 10)
-        )
+        )  # sets lower closest lower tenbasebets
 
-    # Lowered sensitivity thresholds so the bets rise and compound much faster
-    if (currentWagerAmount < (backupPeanut * 2.0)) and (
-        walletStash > (checkpointJuice + (currentWagerAmount * 1.5))
+    if (currentWagerAmount < (backupPeanut * 1.5)) and (
+        walletStash > (checkpointJuice + (currentWagerAmount * 6.9))
     ):
-        currentWagerAmount *= 2
+        currentWagerAmount = currentWagerAmount * 2
         checkpointJuice = float(walletStash)
 
-    if (currentWagerAmount < (backupPeanut * 2.0)) and (
-        walletStash < (checkpointJuice - (currentWagerAmount * 1.0))
+    if (currentWagerAmount < (backupPeanut * 1.5)) and (
+        walletStash < (checkpointJuice - (currentWagerAmount * 2.9))
     ):
-        currentWagerAmount *= 2
+        currentWagerAmount = currentWagerAmount * 2
         checkpointJuice = float(walletStash)
 
-    if (currentWagerAmount >= (backupPeanut * 2.0)) and (
-        walletStash > (checkpointJuice + (currentWagerAmount * 2.0))
+    if (currentWagerAmount > (backupPeanut * 1.5)) and (
+        walletStash > (checkpointJuice + (currentWagerAmount * 4.9))
     ):
-        currentWagerAmount *= 2
+        currentWagerAmount = currentWagerAmount * 2
         checkpointJuice = float(walletStash)
 
-    if (currentWagerAmount >= (backupPeanut * 2.0)) and (
-        walletStash < (checkpointJuice - (currentWagerAmount * 2.0))
+    if (currentWagerAmount > (backupPeanut * 1.5)) and (
+        walletStash < (checkpointJuice - (currentWagerAmount * 4.9))
     ):
-        currentWagerAmount *= 2
+        currentWagerAmount = currentWagerAmount * 2
         wobbleFactor = 0.0
         checkpointJuice = float(walletStash)
 
