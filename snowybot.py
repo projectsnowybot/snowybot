@@ -104,26 +104,27 @@ def calculate_next_progression_step(incoming_wager):
             math.floor(walletStash / (tinyPeanutSize * 10)) * (tinyPeanutSize * 10)
         )
 
-    if (currentWagerAmount < (backupPeanut * 1.5)) and (
-        walletStash > (checkpointJuice + (currentWagerAmount * 6.9))
+    # Lowered sensitivity thresholds so the bets rise and compound much faster
+    if (currentWagerAmount < (backupPeanut * 2.0)) and (
+        walletStash > (checkpointJuice + (currentWagerAmount * 1.5))
     ):
         currentWagerAmount *= 2
         checkpointJuice = float(walletStash)
 
-    if (currentWagerAmount < (backupPeanut * 1.5)) and (
-        walletStash < (checkpointJuice - (currentWagerAmount * 2.9))
+    if (currentWagerAmount < (backupPeanut * 2.0)) and (
+        walletStash < (checkpointJuice - (currentWagerAmount * 1.0))
     ):
         currentWagerAmount *= 2
         checkpointJuice = float(walletStash)
 
-    if (currentWagerAmount > (backupPeanut * 1.5)) and (
-        walletStash > (checkpointJuice + (currentWagerAmount * 4.9))
+    if (currentWagerAmount >= (backupPeanut * 2.0)) and (
+        walletStash > (checkpointJuice + (currentWagerAmount * 2.0))
     ):
         currentWagerAmount *= 2
         checkpointJuice = float(walletStash)
 
-    if (currentWagerAmount > (backupPeanut * 1.5)) and (
-        walletStash < (checkpointJuice - (currentWagerAmount * 4.9))
+    if (currentWagerAmount >= (backupPeanut * 2.0)) and (
+        walletStash < (checkpointJuice - (currentWagerAmount * 2.0))
     ):
         currentWagerAmount *= 2
         wobbleFactor = 0.0
@@ -548,7 +549,6 @@ def main():
     code_2fa = pwinput.pwinput(prompt="2FA (optional, press Enter to skip): ", mask="*")
     print("Initializing Headless Cross-Platform Engine...", flush=True)
 
-    # Force headless offscreen on Linux, native ANGLE/OpenGL on Windows
     if sys.platform == "win32":
         os.environ["QT_OPENGL"] = "angle"
     else:
@@ -556,7 +556,6 @@ def main():
 
     app = QApplication(sys.argv)
     window = SnowyBotWindow()
-    # Note: window.show() omitted intentionally to keep execution strictly headless on Linux offscreen
     if sys.platform == "win32":
         window.show()
 
