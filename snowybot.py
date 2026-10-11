@@ -562,8 +562,6 @@ def main():
 
     app = QApplication(sys.argv)
     window = SnowyBotWindow()
-    if sys.platform == "win32":
-        window.show()
 
     sys.exit(app.exec_())
 
