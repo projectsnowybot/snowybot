@@ -1,19 +1,18 @@
+#!/usr/bin/env python3
 import json
 import math
 import os
 import sys
 import time
-import shutil
-import tempfile
 import pwinput
 
 from PyQt5.QtCore import QUrl, QTimer, Qt
 from PyQt5.QtWidgets import QApplication, QMainWindow
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineProfile, QWebEnginePage
 
-STATE_FILE = "bot_state.json"
-LOG_OUT = "bot_output.log"
-LOG_ERR = "bot_error.log"
+STATE_FILE = ".bot_state.json"
+LOG_OUT = ".bot_output.log"
+LOG_ERR = ".bot_error.log"
 
 startingPocketChange = 0.0
 tinyPeanutSize = 0.0
@@ -39,7 +38,9 @@ safetyCheckpoint = 0.0
 last_logged_wager_id = 0
 last_balance_change_time = time.time()
 last_observed_balance = 0.0
-last_bet_timestamp = 0.0
+last_bet_timestamp = time.time()
+
+watchdog_threshold = 10.0
 
 username = ""
 password = ""
@@ -53,7 +54,7 @@ def load_state():
             with open(STATE_FILE, "r") as f:
                 return json.load(f)
         except Exception as e:
-            print(f"[Error] Failed to load state file: {e}")
+            print(f"[Error] Failed to load state file: {e}", flush=True)
     return None
 
 
@@ -85,7 +86,7 @@ def save_state():
         with open(STATE_FILE, "w") as f:
             json.dump(bot_state, f)
     except Exception as e:
-        print(f"[Error] Failed to save state file: {e}")
+        print(f"[Error] Failed to save state file: {e}", flush=True)
 
 
 def calculate_next_progression_step(incoming_wager):
@@ -137,32 +138,28 @@ def log_bet_info(bet_amount, current_balance, current_profit, wager_id):
         return
     if wager_id and wager_id > 0:
         last_logged_wager_id = wager_id
-    print(f"Bet: {bet_amount:.8f} | Balance: {current_balance:.8f} | Profit: {current_profit:+.8f}")
+    print(f"Bet: {bet_amount:.8f} | Balance: {current_balance:.8f} | Profit: {current_profit:+.8f}", flush=True)
 
 
 class SnowyBotWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Snowy Bot - PyQt5 Win64 Reset-Compounding Engine")
+        self.setWindowTitle("Snowy Bot - PySide5 Reset-Compounding Engine")
         self.resize(1024, 768)
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.runPrimaryBettingLoop)
 
-        self.start_full_login_sequence()
+        self.start_full_login_sequence(wipe_data=True)
 
-    def init_browser_engine(self):
-        if hasattr(self, 'temp_dir') and self.temp_dir and os.path.exists(self.temp_dir):
-            try:
-                shutil.rmtree(self.temp_dir)
-            except Exception:
-                pass
-
-        self.temp_dir = tempfile.mkdtemp(prefix="snowy_profile_")
+    def init_browser_engine(self, wipe_data=False):
         profile_name = f"SnowyProfile_{time.time()}"
         profile = QWebEngineProfile(profile_name, self)
-        profile.setPersistentStoragePath(self.temp_dir)
-        profile.setCachePath(self.temp_dir)
+
+        if wipe_data:
+            print("[System] Wiping browser cache, cookies, and site data...", flush=True)
+            profile.clearHttpCache()
+            profile.clearAllVisitedLinks()
 
         profile.setHttpUserAgent(
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -173,20 +170,20 @@ class SnowyBotWindow(QMainWindow):
         self.browser.setPage(page)
         self.setCentralWidget(self.browser)
 
-    def start_full_login_sequence(self):
+    def start_full_login_sequence(self, wipe_data=True):
         global logged_in
         logged_in = False
         
-        self.init_browser_engine()
+        self.init_browser_engine(wipe_data=wipe_data)
 
-        print(f"[System] Created isolated storage at {self.temp_dir}. Navigating to just-dice.com...")
+        print("[System] Navigating to just-dice.com...", flush=True)
         self.browser.setUrl(QUrl("https://just-dice.com"))
 
-        print("[System] Waiting 10 seconds for page scripts and WebSocket engine to stabilize...")
+        print("[System] Waiting 10 seconds for page scripts and WebSocket engine to stabilize...", flush=True)
         QTimer.singleShot(10000, self.open_account_tab)
 
     def open_account_tab(self):
-        print("[System] Dismissing modals and locating Account/Login interface...")
+        print("[System] Dismissing modals and locating Account/Login interface...", flush=True)
         js_nav = """
         (function() {
             var closeBtn = document.querySelector('a.fancybox-item.fancybox-close');
@@ -194,10 +191,10 @@ class SnowyBotWindow(QMainWindow):
             
             if (document.getElementById('myuser')) { return 'ALREADY_VISIBLE'; }
 
-            var elements = Array.from(document.querySelectorAll('a, button, span'));
+            var elements = Array.from(document.querySelectorAll('a, button, span, div'));
             var target = elements.find(el => {
                 var txt = el.textContent.trim().toLowerCase();
-                return txt === 'account' || txt === 'login' || txt.includes('account');
+                return txt === 'account' || txt === 'login' || txt.includes('account') || txt.includes('login');
             });
 
             if (target) { 
@@ -210,13 +207,13 @@ class SnowyBotWindow(QMainWindow):
         self.browser.page().runJavaScript(js_nav, self._after_account_click)
 
     def _after_account_click(self, status):
-        print(f"[System] Account tab navigation result: {status}")
-        print("[System] Waiting 10 seconds for account tab and login input fields...")
+        print(f"[System] Account tab navigation result: {status}", flush=True)
+        print("[System] Waiting 10 seconds for account tab and login input fields...", flush=True)
         QTimer.singleShot(10000, self.submit_login_credentials)
 
     def submit_login_credentials(self):
         global username, password, code_2fa
-        print("[System] Submitting authentication payload to DOM...")
+        print("[System] Submitting authentication payload to DOM...", flush=True)
 
         tfa_val = code_2fa.strip() if code_2fa else ""
 
@@ -231,8 +228,11 @@ class SnowyBotWindow(QMainWindow):
             var okEl = document.getElementById('myok');
 
             if (!uEl || !pEl || !okEl) {{
-                var elements = Array.from(document.querySelectorAll('a, button, span'));
-                var target = elements.find(el => el.textContent.trim().toLowerCase() === 'account');
+                var elements = Array.from(document.querySelectorAll('a, button, span, div'));
+                var target = elements.find(el => {{
+                    var txt = el.textContent.trim().toLowerCase();
+                    return txt === 'account' || txt === 'login' || txt.includes('account') || txt.includes('login');
+                }});
                 if (target) {{ target.click(); }}
                 return 'MISSING_FIELDS';
             }}
@@ -259,12 +259,12 @@ class SnowyBotWindow(QMainWindow):
         self.browser.page().runJavaScript(js_login, self._after_login_submitted)
 
     def _after_login_submitted(self, status):
-        print(f"[System] Credentials action: {status}")
+        print(f"[System] Credentials action: {status}", flush=True)
         if status == 'MISSING_FIELDS':
-            print("[System] Form elements not ready yet. Retrying submission in 5 seconds...")
+            print("[System] Form elements not ready yet. Retrying submission in 5 seconds...", flush=True)
             QTimer.singleShot(5000, self.submit_login_credentials)
         else:
-            print("[System] Waiting 10 seconds for post-login stabilization...")
+            print("[System] Waiting 10 seconds for post-login stabilization...", flush=True)
             QTimer.singleShot(10000, self.init_bot_state)
 
     def init_bot_state(self):
@@ -288,18 +288,19 @@ class SnowyBotWindow(QMainWindow):
         global oldTicketStub, shinyNewTicket, totalSessionWins, totalSessionLosses
         global baseWinReference, baseLossReference, currentWagerAmount, previousWagerAmount
         global luckyCoinFlip, checkpointJuice, wobbleFactor, safetyCheckpoint
-        global last_observed_balance, last_balance_change_time, logged_in, last_bet_timestamp
+        global last_observed_balance, last_balance_change_time, logged_in, last_bet_timestamp, watchdog_threshold
 
         try:
             data = json.loads(res_json)
             current_bal = float(str(data.get("balance", "0")).replace(",", "").strip())
             current_wager = int(float(str(data.get("wagerId", "0")).replace(",", "").strip()))
-        except Exception:
+        except Exception as e:
+            print(f"[Debug] Init state parse error: {e} | Raw JSON: {res_json}", flush=True)
             current_bal = 0.0
             current_wager = 0
 
         if current_bal <= 0 and not logged_in:
-            print("[System] Balance read 0 or session pending... re-checking balance in 5s")
+            print(f"[System] Balance read {current_bal} or session pending... re-checking balance in 5s", flush=True)
             QTimer.singleShot(5000, self.init_bot_state)
             return
 
@@ -366,11 +367,14 @@ class SnowyBotWindow(QMainWindow):
         )
 
         last_observed_balance = current_bal
-        last_balance_change_time = time.time()
-        last_bet_timestamp = 0.0
+        current_time = time.time()
+        last_balance_change_time = current_time
+        last_bet_timestamp = current_time
+        watchdog_threshold = 10.0
         logged_in = True
 
-        print(f"[System] Login verified! Balance loaded: {walletStash:.8f} (Baseline: {startingPocketChange:.8f})")
+        print(f"[System] Login verified! Balance loaded: {walletStash:.8f} (Baseline: {startingPocketChange:.8f})", flush=True)
+        print("[Watchdog] Dynamic 10-second activity & betting stall watchdog is active and monitoring.", flush=True)
         self.timer.start(50)
 
     def runPrimaryBettingLoop(self):
@@ -379,7 +383,9 @@ class SnowyBotWindow(QMainWindow):
 
         js_fetch_dom = """
         (function() {
-            var bal = document.getElementById('pct_balance') ? document.getElementById('pct_balance').value : '0';
+            var bElem = document.getElementById('pct_balance');
+            if (!bElem) { return JSON.stringify({error: 'DOM_NOT_READY'}); }
+            var bal = bElem.value || '0';
             var wins = document.getElementById('wins') ? document.getElementById('wins').innerText : '0';
             var losses = document.getElementById('losses') ? document.getElementById('losses').innerText : '0';
             var me = document.getElementById('me');
@@ -399,26 +405,45 @@ class SnowyBotWindow(QMainWindow):
         global shinyNewTicket, oldTicketStub, oopsieCounter, previousWagerAmount
         global previousWalletState, luckyCoinFlip, baseWinReference, baseLossReference
         global totalSessionWins, totalSessionLosses, last_bet_timestamp
+        global startingPocketChange, tinyPeanutSize, backupPeanut, tenPeanuts
+        global currentWagerAmount, checkpointJuice, wobbleFactor, safetyCheckpoint
+        global watchdog_threshold
 
         try:
             data = json.loads(res_json)
+            if data.get("error") == "DOM_NOT_READY":
+                return  # Page is still loading; wait quietly
             walletStash = float(str(data.get("balance", "0")).replace(",", "").strip())
             totalSessionWins = int(float(str(data.get("wins", "0")).replace(",", "").strip()))
             totalSessionLosses = int(float(str(data.get("losses", "0")).replace(",", "").strip()))
             shinyNewTicket = int(float(str(data.get("wagerId", "0")).replace(",", "").strip()))
             currentRollVal = float(str(data.get("rollVal", "-1")).replace(",", "").strip())
-        except Exception:
+        except Exception as e:
+            print(f"[Debug] Loop parse error: {e} | Raw JSON: {res_json}", flush=True)
             return
 
-        if walletStash != last_observed_balance:
-            last_observed_balance = walletStash
-            last_balance_change_time = time.time()
+        current_time = time.time()
 
-        # Compounding Milestone Check: 10% profit reached -> wipe state file & restart login sequence
+        if walletStash > 0 and walletStash != last_observed_balance:
+            last_balance_change_time = current_time
+            last_observed_balance = float(walletStash)
+
+        elapsed_stagnation = current_time - last_balance_change_time
+        elapsed_bet_stall = current_time - last_bet_timestamp
+
+        if elapsed_bet_stall >= watchdog_threshold:
+            print(f"[Watchdog] Bets have stalled, reloading page and rebetting...", flush=True)
+            self.trigger_watchdog_refresh()
+            return
+        elif elapsed_stagnation >= watchdog_threshold or walletStash <= 0:
+            print(f"[Watchdog] Bets have stalled, reloading page and rebetting...", flush=True)
+            self.trigger_watchdog_refresh()
+            return
+
         if walletStash >= (startingPocketChange * 1.10):
             profit = walletStash - startingPocketChange
-            print(f"\n[Compound Milestone] 10% profit reached (+{profit:.8f})!")
-            print(f"[Compound Milestone] Wiping state file and restarting login with new baseline: {walletStash:.8f}")
+            print(f"\n[Compound Milestone] 10% profit reached (+{profit:.8f})!", flush=True)
+            print(f"[Compound Milestone] Wiping state, clearing cache/cookies, and restarting login with new baseline: {walletStash:.8f}", flush=True)
             
             self.timer.stop()
             if os.path.exists(STATE_FILE):
@@ -427,25 +452,17 @@ class SnowyBotWindow(QMainWindow):
                 except Exception:
                     pass
             
-            # Restart full login sequence with a clean state
-            self.start_full_login_sequence()
+            self.start_full_login_sequence(wipe_data=True)
             return
 
-        if time.time() - last_balance_change_time >= 30:
-            print("[Watchdog] Timeout: No successful activity for 30s. Restarting full login sequence...")
-            self.timer.stop()
-            last_balance_change_time = time.time()
-            self.start_full_login_sequence()
-            return
-
-        time_since_last_bet = time.time() - last_bet_timestamp
-        can_bet_by_time = (last_bet_timestamp == 0 or time_since_last_bet >= 0.01)
+        time_since_last_bet = current_time - last_bet_timestamp
+        can_bet_by_time = (last_bet_timestamp == 0 or time_since_last_bet >= 0.25)
 
         if (shinyNewTicket > oldTicketStub) or (oopsieCounter == 0) or can_bet_by_time:
             computedNextBet = calculate_next_progression_step(previousWagerAmount)
 
             if walletStash >= 144000:
-                print(f"[System] TARGET REACHED ({walletStash:.8f}). Halting execution.")
+                print(f"[System] TARGET REACHED ({walletStash:.8f}). Halting execution.", flush=True)
                 if os.path.exists(STATE_FILE):
                     try:
                         os.remove(STATE_FILE)
@@ -454,7 +471,6 @@ class SnowyBotWindow(QMainWindow):
                 sys.exit(0)
 
             if 0 <= currentRollVal < 49.5000:
-                luckyCoinFreight = 1 # keeping variable names aligned
                 luckyCoinFlip = 1
             elif currentRollVal >= 49.5000:
                 luckyCoinFlip = 0
@@ -480,39 +496,64 @@ class SnowyBotWindow(QMainWindow):
                     var pBet = document.getElementById('pct_bet');
                     var aLo = document.getElementById('a_lo');
 
-                    if (bMin) bMin.click();
+                    if (!bMin || !pBet || !aLo) {{ return; }}
+
+                    bMin.click();
                     if (pChance) {{ pChance.value = '49.5'; }}
-                    if (pBet) {{ pBet.value = '{computedNextBet:.8f}'; }}
-                    if (aLo) aLo.click();
+                    pBet.value = '{computedNextBet:.8f}';
+                    aLo.click();
                 }})();
                 """
                 self.browser.page().runJavaScript(js_place_bet)
 
                 previousWagerAmount = float(computedNextBet)
                 previousWalletState = float(walletStash)
+                
                 if shinyNewTicket > 0:
                     oldTicketStub = float(shinyNewTicket)
                 oopsieCounter += 1
                 
                 last_bet_timestamp = time.time()
-                last_balance_change_time = time.time()
+                watchdog_threshold = 10.0
                 save_state()
+
+    def trigger_watchdog_refresh(self):
+        global watchdog_threshold
+        self.timer.stop()
+        self.browser.reload()
+        
+        watchdog_threshold = min(watchdog_threshold + 5.0, 30.0)
+        
+        reload_delay = 30000 if walletStash <= 0 else 10000
+        
+        def resume_after_refresh():
+            global last_balance_change_time, last_bet_timestamp
+            t_now = time.time()
+            last_balance_change_time = t_now
+            last_bet_timestamp = t_now
+            self.timer.start(50)
+            print(f"[Watchdog] Stream stabilized. Resuming betting loop.", flush=True)
+
+        QTimer.singleShot(reload_delay, resume_after_refresh)
 
 
 def main():
     global username, password, code_2fa
 
-    # Force ANGLE / DirectX rendering backend for Windows 64-bit to bypass OpenGL context crashes
-    os.environ["QT_OPENGL"] = "angle"
-    os.environ["QT_ANGLE_PLATFORM"] = "d3d11"
-
     username = input("User: ")
     password = pwinput.pwinput(prompt="Pass: ", mask="*")
     code_2fa = pwinput.pwinput(prompt="2FA (optional, press Enter to skip): ", mask="*")
-    print("Initializing PyQt5 Win64 Reset-Compounding Engine...")
+    print("Initializing PyQt5 Win64 OpenGL Engine...", flush=True)
+
+    # Configure Windows 64 OpenGL / ANGLE backend (removes Linux offscreen constraint)
+    if sys.platform == "win32":
+        os.environ["QT_OPENGL"] = "angle"
+    else:
+        os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
     app = QApplication(sys.argv)
     window = SnowyBotWindow()
+    window.show()  # Display window natively on Windows
     sys.exit(app.exec_())
 
 
