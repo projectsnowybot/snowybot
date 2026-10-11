@@ -1,3 +1,6 @@
+# warning remember delete the .bot_state.json file when balance changes or compound daily while the bots stopped
+# warning snowybot.py recreates .bot_state.json file while running do not remove while running
+
 Snowy Bot - PySide5 Reset-Compounding Engine
 
 Snowy Bot is an automated, headless browser-based compounding engine built with Python and PyQt5. It operates on the just-dice.com platform using an isolated session storage profile.
