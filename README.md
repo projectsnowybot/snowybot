@@ -41,7 +41,9 @@ Install PyQt5 and pwinput via pip
 # 3. macOS
 
 Open your Terminal app and install the dependencies using pip3:
+
 Install required packages
+
     pip3 install PyQt5 PyQtWebEngine pwinput
 
 How to Use
