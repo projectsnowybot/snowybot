@@ -1,8 +1,8 @@
 
 
-# snowybot - clamcoin-just-dice-gambling-Engine
+# snowybot is a clamcoin-just-dice-gambling-bot
 
-# snowybot is an automated, headless browser-based compounding engine built with Python and PyQt5.
+# snowybot is a headless browser-based cryptocurrency gambling and compounding automation built with Python and PyQt5.
 # snowybot operates on the just-dice.com platform using an isolated session storage profile.
 
 Prerequisites
@@ -48,9 +48,11 @@ Install required packages
 
 How to Use
 
-Make sure you have created your account and signed up on just-dice.com beforehand. You will need your account username and password during execution.
+# Make sure you have created your account and signed up on just-dice.com beforehand.
+# You will need your account username and password during execution.
+# you will need balance above 0.0144 for snowybot to work without glitch.
 
-Open a terminal or command prompt in the directory containing snowybot.py.
+Open a terminal or command prompt in the directory containing snowybot.py
 
 Run the script:
 
@@ -73,7 +75,7 @@ When prompted by the console, enter your Just-Dice username, password, and optio
 The script will launch an offscreen automated browser instance, navigate to just-dice.com, log into your account using your signup credentials, and start the automated reset-compounding betting loop.
 State & Logs
 
-bot_state.json: Automatically tracks your session data, wallet stash, and compounding progress. If you wish to reset your baseline completely, delete this file before starting the script.
+.bot_state.json: Automatically tracks your session data, wallet stash, and compounding progress. If you wish to reset your baseline completely, delete this file before starting the script.
 
 Milestone / Safety: The bot automatically halts if it reaches the target balance, or resets its baseline profile upon hitting a 10% compounding profit milestone.
 
