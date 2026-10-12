@@ -58,6 +58,10 @@ Bash
 
     python3 snowybot.py
 
+or
+
+    python snowybot.py
+
 When prompted by the console, enter your Just-Dice username, password, and optional 2FA code (press Enter to skip 2FA if you do not have it enabled):
 
         User: your_username
