@@ -77,10 +77,45 @@ State & Logs
 
 Milestone / Safety: The bot automatically halts if it reaches the target balance, or resets its baseline profile upon hitting a 10% compounding profit milestone.
 # warning read below
-# if you know tht balance changed or has changed or is going to change please stop the bot
 
-press ctrl+c and or ctrl+z to stop the bot
+if you know tht balance changed or has changed or is going to change please stop the bot
 
-# remember delete the .bot_state.json file when balance changes after stopping.
-# only delete .bot_state.json while the bots stopped.
-# snowybot.py recreates .bot_state.json file while running do not remove while running or can lose funds
+press ctrl+c and or ctrl+z to stop the snowybot.py while in the terminal
+
+also can pkill python or pkill python3
+
+also can terminate or kill or end task or close python and or the terminal or powershell window snowybot.py is running on
+
+remember delete the .bot_state.json file when or if balance changes but after stopping snowybot.py
+
+yes its hidden file
+
+only delete .bot_state.json while the bots stopped.
+
+snowybot.py recreates .bot_state.json file while running 
+
+do not remove .bot_state.json while running or edit it unless you want to lose funds and or do at own risk
+
+snowybot and snowy will not replace any lost funds so use this automation at your own risk
+
+James William Snow will not replace any lost funds so use at your own risk
+
+snowybot does not steal funds
+
+snowybot does not steal account details
+
+snowybot was created by snowy with hard work for helping others 
+
+snowy is friendly and cares about those who play and 
+
+has advice to hackers....dont hack for penies.... use snowybot for $1000s with penies!!!
+
+snowybot has been known to make roughly 10% in about 30hrs
+
+snowybot also compounds at 10% on auto so profit cannot be monitored more than 10%
+
+good luck gamblers
+
+also if you earn a lot please donate to snowy on just-dice.com chat
+
+maybe say gday too
