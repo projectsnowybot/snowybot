@@ -116,7 +116,7 @@ snowy has advice to hackers....don't hack for pennies.... use snowybot for $1000
 
 snowybot has been known to make roughly 10% in about 30hrs
 
-snowybot also compounds at 10% on auto so profit cannot be monitored more than 10%
+snowybot also compounds at 10% on auto so profit may be or may not be monitored more than 10%
 
 good luck gamblers
 
