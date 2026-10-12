@@ -78,21 +78,23 @@ State & Logs
 Milestone / Safety: The bot automatically halts if it reaches the target balance, or resets its baseline profile upon hitting a 10% compounding profit milestone.
 # warning read below
 
-if you know tht balance changed or has changed or is going to change please stop the bot
+if you know that the balance changed due to external bets or deposits or is going to change that way please stop snowybot
+
+after stopping from this change please delete .bot_state.json file in the folder that snowybot.py is in. 
+
+.bot_state.json only was created if snowybot.py was running bets at all or signed in to just-dice.com
 
 press ctrl+c and or ctrl+z to stop the snowybot.py while in the terminal
 
-also can pkill python or pkill python3
+also can terminate or kill or pkill or end task or close python or python3 and or the window snowybot.py is running on
 
-also can terminate or kill or end task or close python and or the terminal or powershell window snowybot.py is running on
-
-remember delete the .bot_state.json file when or if balance changes but after stopping snowybot.py
+remember delete the .bot_state.json file when or if balance changes externally but after stopping snowybot.py
 
 yes .bot_state.json is a hidden file
 
 only delete .bot_state.json while the bots stopped.
 
-snowybot.py recreates .bot_state.json file while running 
+snowybot.py recreates .bot_state.json file while running bets
 
 do not remove .bot_state.json while running or edit it unless you want to lose funds and or do at own risk
 
@@ -104,11 +106,11 @@ snowybot does not steal funds
 
 snowybot does not steal account details
 
-snowybot was created by snowy with hard work for helping others 
+snowybot was created by snowy, with hard work, and is for helping others and himself bet well and nearly risk free
 
-snowy is friendly and cares about those who play and 
+snowy is friendly and cares about those who play
 
-has advice to hackers....dont hack for penies.... use snowybot for $1000s with penies!!!
+snowy has advice to hackers....don't hack for pennies.... use snowybot for $1000s from pennies and time on auto!!!
 
 snowybot has been known to make roughly 10% in about 30hrs
 
