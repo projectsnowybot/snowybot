@@ -9,7 +9,6 @@ snowybot operates on the just-dice.com platform using an isolated session storag
 Prerequisites
 
 Ensure you have Python 3.8 or higher installed on your system. You can verify your Python version by running:
-Bash
 
     python3 --version
 
@@ -56,8 +55,6 @@ How to Use
 Open a terminal or command prompt in the directory containing snowybot.py
 
 Run the script:
-
-Bash
 
     python3 snowybot.py
 
