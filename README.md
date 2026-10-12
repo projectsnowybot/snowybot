@@ -2,8 +2,9 @@
 
 # snowybot is a clamcoin-just-dice-gambling-bot
 
-# snowybot is a headless browser-based cryptocurrency gambling and compounding automation built with Python and PyQt5.
-# snowybot operates on the just-dice.com platform using an isolated session storage profile.
+snowybot is a headless browser-based cryptocurrency gambling and compounding automation built with Python and PyQt5.
+
+snowybot operates on the just-dice.com platform using an isolated session storage profile.
 
 Prerequisites
 
