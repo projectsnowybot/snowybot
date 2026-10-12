@@ -48,9 +48,10 @@ Install required packages
 
 How to Use
 
-# Make sure you have created your account and signed up on just-dice.com beforehand.
-# You will need your account username and password during execution.
-# you will need balance above 0.0144 for snowybot to work without glitch.
+# Make sure you have created your account on just-dice.com beforehand with username and password in the accounts tab.
+# snowybot will need your account username and password during execution.
+
+snowybot will need balance above 0.0144 for snowybot to potentially win against the house
 
 Open a terminal or command prompt in the directory containing snowybot.py
 
