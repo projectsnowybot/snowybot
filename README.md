@@ -88,7 +88,7 @@ also can terminate or kill or end task or close python and or the terminal or po
 
 remember delete the .bot_state.json file when or if balance changes but after stopping snowybot.py
 
-yes its hidden file
+yes .bot_state.json is a hidden file
 
 only delete .bot_state.json while the bots stopped.
 
