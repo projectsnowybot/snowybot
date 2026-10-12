@@ -76,6 +76,11 @@ State & Logs
 .bot_state.json: Automatically tracks your session data, wallet stash, and compounding progress. If you wish to reset your baseline completely, delete this file before starting the script.
 
 Milestone / Safety: The bot automatically halts if it reaches the target balance, or resets its baseline profile upon hitting a 10% compounding profit milestone.
+# warning read below
+# if you know tht balance changed or has changed or is going to change please stop the bot
 
-# warning remember delete the .bot_state.json file when balance changes or compound daily while the bots stopped
-# warning snowybot.py recreates .bot_state.json file while running do not remove while running or can lose funds
+press ctrl+c and or ctrl+z to stop the bot
+
+# remember delete the .bot_state.json file when balance changes after stopping.
+# only delete .bot_state.json while the bots stopped.
+# snowybot.py recreates .bot_state.json file while running do not remove while running or can lose funds
