@@ -1,9 +1,10 @@
-# warning remember delete the .bot_state.json file when balance changes or compound daily while the bots stopped
-# warning snowybot.py recreates .bot_state.json file while running do not remove while running
 
-Snowy Bot - PySide5 Reset-Compounding Engine
 
-Snowy Bot is an automated, headless browser-based compounding engine built with Python and PyQt5. It operates on the just-dice.com platform using an isolated session storage profile.
+# snowybot - clamcoin-just-dice-gambling-Engine
+
+# snowybot is an automated, headless browser-based compounding engine built with Python and PyQt5.
+# snowybot operates on the just-dice.com platform using an isolated session storage profile.
+
 Prerequisites
 
 Ensure you have Python 3.8 or higher installed on your system. You can verify your Python version by running:
@@ -14,7 +15,8 @@ Bash
 Installation & Setup
 
 Choose your operating system below to install the required dependencies (PyQt5 and pwinput).
-1. Linux (Ubuntu / Debian / Fedora / Arch)
+
+# 1. Linux (Ubuntu / Debian) and known install equivalent 
 
 Open your terminal and run the following commands and update package lists and install python3-pip if not already installed
 
@@ -22,10 +24,12 @@ Open your terminal and run the following commands and update package lists and i
 
 Install the required Python package for masked password/2FA inputs
     
-    pip3 install pwinput
+    pip install pwinput --break-system-packages
 
 (Note: Depending on your Linux distribution, you may need to run inside a Python virtual environment if system package managers restrict global pip installs).
-2. Windows
+
+
+# 2. Windows
 
 Open Command Prompt or PowerShell as Administrator and run:
 DOS
@@ -34,11 +38,11 @@ Install PyQt5 and pwinput via pip
 
     pip install PyQt5 PyQtWebEngine pwinput
 
-3. macOS
+# 3. macOS
 
 Open your Terminal app and install the dependencies using pip3:
 Install required packages
-    pip3 install PyQt5 pwinput
+    pip3 install PyQt5 PyQtWebEngine pwinput
 
 How to Use
 
@@ -66,3 +70,6 @@ State & Logs
 bot_state.json: Automatically tracks your session data, wallet stash, and compounding progress. If you wish to reset your baseline completely, delete this file before starting the script.
 
 Milestone / Safety: The bot automatically halts if it reaches the target balance, or resets its baseline profile upon hitting a 10% compounding profit milestone.
+
+# warning remember delete the .bot_state.json file when balance changes or compound daily while the bots stopped
+# warning snowybot.py recreates .bot_state.json file while running do not remove while running or can lose funds
