@@ -48,8 +48,7 @@ Install required packages
 
 How to Use
 
-# Make sure you have created your account on just-dice.com beforehand with username and password in the accounts tab.
-# snowybot will need your account username and password during execution.
+# Make sure you have created your account on just-dice.com beforehand with username and password in the accounts tab as snowybot will need your account username and password during execution.
 
 snowybot will need balance above 0.0144 for snowybot to potentially win against the house
 
