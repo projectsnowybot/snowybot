@@ -30,7 +30,7 @@ has_placed_first_bet = False
 watchdog_threshold = 10.0
 
 api_token = ""
-currency_symbol = "btc"  # Change to your target currency (e.g., 'doge', 'ltc', 'eth', etc.)
+currency_symbol = "ltc"
 
 def load_state():
     if os.path.exists(STATE_FILE):
@@ -80,7 +80,7 @@ def api_request(endpoint, method="GET", payload=None):
         if response.status_code == 200:
             return response.json()
         else:
-            print(f"[API Error] Status {response.status_code}: {response.text}", flush=True)
+            print(f"[API Error] Status {response.status_code} for {endpoint}: {response.text}", flush=True)
             return None
     except Exception as e:
         print(f"[API Exception] Request failed: {e}", flush=True)
@@ -88,11 +88,33 @@ def api_request(endpoint, method="GET", payload=None):
 
 def get_user_balance():
     data = api_request("user/balances", method="GET")
-    if data and isinstance(data, dict):
-        # WolfBet returns balances dictionary keyed by currency
-        curr_data = data.get(currency_symbol.lower())
-        if curr_data:
-            return round(float(curr_data.get("amount", 0.0)), 8)
+    if not data:
+        return None
+    
+    target = currency_symbol.lower()
+    balances_list = []
+    
+    if isinstance(data, dict):
+        if "balances" in data and isinstance(data["balances"], list):
+            balances_list = data["balances"]
+        else:
+            for k, v in data.items():
+                if isinstance(v, list):
+                    balances_list = v
+                    break
+    elif isinstance(data, list):
+        balances_list = data
+
+    for item in balances_list:
+        if isinstance(item, dict):
+            curr_name = str(item.get("currency", "")).lower()
+            if curr_name == target:
+                try:
+                    return round(float(item.get("amount", 0.0)), 8)
+                except (ValueError, TypeError):
+                    pass
+                
+    print(f"[Debug] Could not parse balance for '{target}' from response: {data}", flush=True)
     return None
 
 def calculate_next_progression_step(incoming_wager):
@@ -144,7 +166,7 @@ def initialize_bot_state():
 
     current_bal = get_user_balance()
     if current_bal is None:
-        print("[System] Failed to fetch initial balance from WolfBet API. Please check your API token.", flush=True)
+        print(f"[System] Failed to fetch initial balance for '{currency_symbol.upper()}' from WolfBet API. Please check your token and currency symbol.", flush=True)
         sys.exit(1)
 
     savedState = load_state()
@@ -152,10 +174,13 @@ def initialize_bot_state():
     startingPocketChange = (
         round(float(savedState.get("startingPocketChange", current_bal)), 8) if savedState else current_bal
     )
+    
+    calculated_tiny = round(startingPocketChange / 1440000.0, 8)
+
     tinyPeanutSize = (
-        round(float(savedState.get("tinyPeanutSize", round(startingPocketChange / 1440000.0, 8))), 8)
+        round(float(savedState.get("tinyPeanutSize", calculated_tiny)), 8)
         if savedState
-        else round(startingPocketChange / 1440000.0, 8)
+        else calculated_tiny
     )
     backupPeanut = round(float(savedState.get("backupPeanut", tinyPeanutSize)), 8) if savedState else tinyPeanutSize
     tenPeanuts = round(float(savedState.get("tenPeanuts", tinyPeanutSize * 10)), 8) if savedState else tinyPeanutSize * 10
@@ -198,103 +223,73 @@ def run_betting_loop():
     global currentWagerAmount, checkpointJuice, wobbleFactor, safetyCheckpoint
     global watchdog_threshold, last_bet_timestamp, last_activity_timestamp, has_placed_first_bet
 
-    print("[Watchdog] Starting headless betting engine loop...", flush=True)
+    print("[Watchdog] Starting flash bet engine loop...", flush=True)
 
     while True:
-        current_time = time.time()
         current_bal = get_user_balance()
+        if current_bal is not None:
+            walletStash = current_bal
 
-        if current_bal is None:
-            print("[Warning] Could not fetch balance. Retrying in 5 seconds...", flush=True)
-            time.sleep(5)
-            continue
+        computedNextBet = calculate_next_progression_step(previousWagerAmount)
 
-        walletStash = current_bal
-
-        # Check if balance changed
-        balance_changed = (
-            walletStash == round((last_observed_balance + previousWagerAmount), 8) or 
-            walletStash == round((last_observed_balance - previousWagerAmount), 8) or
-            walletStash != last_observed_balance
-        )
-
-        if walletStash > 0 and balance_changed:
-            last_balance_change_time = current_time
-            last_observed_balance = walletStash
-            last_activity_timestamp = current_time
-
-        elapsed_stagnation = current_time - last_balance_change_time
-
-        if elapsed_stagnation >= watchdog_threshold or walletStash <= 0:
-            print(f"[Watchdog] Balance check stalled or depleted. Waiting/re-syncing...", flush=True)
-            time.sleep(5)
-            last_balance_change_time = time.time()
-            continue
-
-        if walletStash >= round(startingPocketChange * 24, 8):
-            profit = round(walletStash - startingPocketChange, 8)
-            print(f"\n[Compound Milestone] Target profit reached (+{profit:.8f})!", flush=True)
+        if walletStash >= 144000:
+            print(f"[System] TARGET REACHED ({walletStash:.8f}). Halting execution.", flush=True)
             if os.path.exists(STATE_FILE):
                 try:
                     os.remove(STATE_FILE)
                 except Exception:
                     pass
-            print("[System] Resetting baseline with new balance and continuing...", flush=True)
-            startingPocketChange = walletStosh
+            sys.exit(0)
 
-        if balance_changed or not has_placed_first_bet:
-            has_placed_first_bet = True
-            computedNextBet = calculate_next_progression_step(previousWagerAmount)
+        log_bet_info(computedNextBet, walletStash, round(walletStash - startingPocketChange, 8))
 
-            if walletStash >= 144000:
-                print(f"[System] TARGET REACHED ({walletStash:.8f}). Halting execution.", flush=True)
+        bet_payload = {
+            "currency": currency_symbol.lower(),
+            "game": "dice",
+            "amount": f"{computedNextBet:.8f}",
+            "rule": "under",
+            "multiplier": "2",
+            "bet_value": "49.5"
+        }
+
+        bet_response = api_request("bet/place", method="POST", payload=bet_payload)
+        
+        if bet_response and "bet" in bet_response:
+            user_bal_obj = bet_response.get("user_balance")
+            if isinstance(user_bal_obj, dict):
+                new_balance = float(user_bal_obj.get("amount", walletStash))
+                walletStash = round(new_balance, 8)
+            
+            last_observed_balance = walletStash
+            last_balance_change_time = time.time()
+            last_activity_timestamp = time.time()
+            
+            previousWagerAmount = computedNextBet
+            previousWalletState = walletStash
+            last_bet_timestamp = time.time()
+            save_state()
+
+            if walletStash >= round(startingPocketChange * 24, 8):
+                profit = round(walletStash - startingPocketChange, 8)
+                print(f"\n[Compound Milestone] Target profit reached (+{profit:.8f})!", flush=True)
                 if os.path.exists(STATE_FILE):
                     try:
                         os.remove(STATE_FILE)
                     except Exception:
                         pass
-                sys.exit(0)
-
-            log_bet_info(computedNextBet, walletStash, round(walletStash - startingPocketChange, 8))
-
-            # WolfBet API place bet payload specification
-            bet_payload = {
-                "currency": currency_symbol.lower(),
-                "game": "dice",
-                "amount": f"{computedNextBet:.8f}",
-                "rule": "over",          # or "under"
-                "multiplier": "1.98",    # Corresponds to ~49.5% win chance
-                "bet_value": "49.99"     # Roll target
-            }
-
-            bet_response = api_request("bet", method="POST", payload=bet_payload)
-            
-            if bet_response and "bet" in bet_response:
-                res_data = bet_response["bet"]
-                actual_profit = float(res_data.get("profit", 0.0))
-                new_balance = float(bet_response.get("user_balance", {}).get("amount", walletStash))
-                
-                walletStash = round(new_balance, 8)
-                last_observed_balance = walletStash
-                last_balance_change_time = time.time()
-                
-                previousWagerAmount = computedNextBet
-                previousWalletState = walletStash
-                last_bet_timestamp = time.time()
-                save_state()
-            else:
-                print("[Error] Failed to execute bet via API. Retrying in 3 seconds...", flush=True)
-                time.sleep(3)
-                continue
-
-        time.sleep(1.0) # Control loop polling frequency
+                print("[System] Resetting baseline with new balance and continuing...", flush=True)
+                startingPocketChange = walletStash
+        else:
+            print("[Error] Failed or rate-limited on flash bet placement. Retrying...", flush=True)
+            time.sleep(0.1)
 
 def main():
     global api_token, currency_symbol
 
-    print("=== SnowyBot WolfBet API Edition ===")
+    print("=== SnowyBot WolfBet API Edition (Flash Bet Mode) ===")
     api_token = pwinput.pwinput(prompt="WolfBet API Token / Bearer: ", mask="*")
-    currency_input = input("Currency symbol (e.g. btc, lth, doge, eth) [default: btc]: ").strip()
+    
+    currency_input = input("Currency symbol [default: ltc]: ").strip().lower()
     if currency_input:
         currency_symbol = currency_input
 
