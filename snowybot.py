@@ -355,7 +355,7 @@ class SnowyBotWindow(QMainWindow):
         current_time = time.time()
 
         # Check if balance changed
-        balance_changed = (walletStash != last_observed_balance)
+        balance_changed = (walletStash == round((last_observed_balance + previousWagerAmount), 8) or walletStash == round((last_observed_balance - previousWagerAmount), 8))
 
         if walletStash > 0 and balance_changed:
             last_balance_change_time = current_time
@@ -416,7 +416,6 @@ class SnowyBotWindow(QMainWindow):
             }})();
             """
             self.browser.page().runJavaScript(js_place_bet)
-
             previousWagerAmount = computedNextBet
             previousWalletState = walletStash
             last_bet_timestamp = time.time()
