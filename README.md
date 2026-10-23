@@ -1,6 +1,12 @@
 
 
-# snowybot is a clamcoin-just-dice-gambling-bot
+# snowybot is a clamcoin-just-dice-gambling-bot or wolfbet-gambling-bot
+
+https://just-dice.com
+
+or 
+
+https://wolfbet.com
 
 snowybot is a headless browser-based cryptocurrency gambling and compounding automation built with Python and PyQt5.
 
@@ -18,6 +24,8 @@ Choose your operating system below to install the required dependencies (PyQt5 a
 
 # 1. Linux (Ubuntu / Debian) and known install equivalent 
 
+for just-dice.com
+
 Open your terminal and run the following commands and update package lists and install python3-pip if not already installed
 
     sudo apt update && sudo apt install -y python3-pip python3-pyqt5 python3-pyqt5.qtwebengine
@@ -25,6 +33,11 @@ Open your terminal and run the following commands and update package lists and i
 Install the required Python package for masked password/2FA inputs
     
     pip install pwinput --break-system-packages
+
+for wolfbet.com
+
+    pip install requests pwinput --break-system-packages
+    
 
 (Note: Depending on your Linux distribution, you may need to run inside a Python virtual environment if system package managers restrict global pip installs).
 
@@ -36,7 +49,7 @@ DOS
 
 Install PyQt5 and pwinput via pip
 
-    pip install PyQt5 PyQtWebEngine pwinput
+    pip install PyQt5 PyQtWebEngine pwinput requests
 
 # 3. macOS
 
@@ -44,7 +57,7 @@ Open your Terminal app and install the dependencies using pip3:
 
 Install required packages
 
-    pip3 install PyQt5 PyQtWebEngine pwinput
+    pip3 install PyQt5 PyQtWebEngine pwinput requests
 
 How to Use
 
