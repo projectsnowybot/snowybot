@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import asyncio
 import json
 import math
 import os
@@ -23,6 +24,7 @@ previousWagerAmount = 0.0
 checkpointJuice = 0.0
 wobbleFactor = 1.0
 safetyCheckpoint = 0.0
+safetyCheckpointtwo = 0.0
 
 last_balance_change_time = time.time()
 last_observed_balance = 0.0
@@ -56,6 +58,7 @@ def save_state():
         "checkpointJuice": checkpointJuice,
         "wobbleFactor": wobbleFactor,
         "safetyCheckpoint": safetyCheckpoint,
+        "safetyCheckpointtwo": safetyCheckpointtwo,
         "last_seen_timestamp": time.time(),
     }
     try:
@@ -81,29 +84,42 @@ def save_master_state(balance):
     except Exception as e:
         print(f"[Error] Failed to save master state file: {e}", flush=True)
 
-def api_request(endpoint, method="GET", payload=None):
+def api_request(endpoint, method="GET", payload=None, max_retries=3):
+    global last_activity_timestamp
     headers = {
         "Authorization": f"Bearer {api_token}",
         "Content-Type": "application/json",
         "Accept": "application/json"
     }
     url = f"{API_BASE_URL}/{endpoint}"
-    try:
-        if method == "GET":
-            response = requests.get(url, headers=headers, timeout=10)
-        elif method == "POST":
-            response = requests.post(url, headers=headers, json=payload, timeout=10)
-        else:
-            return None
+    backoff_factor = 1.0
 
-        if response.status_code == 200:
-            return response.json()
-        else:
-            print(f"[API Error] Status {response.status_code} for {endpoint}: {response.text}", flush=True)
-            return None
-    except Exception as e:
-        print(f"[API Exception] Request failed: {e}", flush=True)
-        return None
+    for attempt in range(max_retries):
+        try:
+            if method == "GET":
+                response = requests.get(url, headers=headers, timeout=10)
+            elif method == "POST":
+                response = requests.post(url, headers=headers, json=payload, timeout=10)
+            else:
+                return None
+
+            if response.status_code == 200:
+                last_activity_timestamp = time.time()
+                return response.json()
+            elif response.status_code == 429:
+                sleep_time = backoff_factor * (2 ** attempt)
+                print(f"[API Rate Limit] Status 429 for {endpoint}. Backing off for {sleep_time}s...", flush=True)
+                time.sleep(sleep_time)
+            else:
+                print(f"[API Error] Status {response.status_code} for {endpoint}: {response.text}", flush=True)
+                sleep_time = backoff_factor * (2 ** attempt)
+                time.sleep(sleep_time)
+        except Exception as e:
+            sleep_time = backoff_factor * (2 ** attempt)
+            print(f"[API Exception] Request failed: {e}. Retrying in {sleep_time}s...", flush=True)
+            time.sleep(sleep_time)
+
+    return None
 
 def get_user_balance():
     data = api_request("user/balances", method="GET")
@@ -136,66 +152,45 @@ def get_user_balance():
     print(f"[Debug] Could not parse balance for '{target}' from response: {data}", flush=True)
     return None
 
-def calculate_next_progression_step(incoming_wager):
-    global walletStash, currentWagerAmount, wobbleFactor, checkpointJuice, safetyCheckpoint, tinyPeanutSize, backupPeanut
+async def calculate_next_progression_step(incoming_wager):
+    global walletStash, currentWagerAmount, wobbleFactor, checkpointJuice, safetyCheckpoint, tinyPeanutSize, backupPeanut, safetyCheckpointtwo
 
     currentWagerAmount = round(float(incoming_wager), 8)
-    walletStash = float(walletStash)
+    walletStash = get_user_balance()
     checkpointJuice = float(checkpointJuice)
     safetyCheckpoint = float(safetyCheckpoint)
-  
-    # Return to base bet if wallet increases above safetyCheckpoint by (tinyPeanutSize * 70)
-    if (walletStash >= (safetyCheckpoint + (tinyPeanutSize * 70))):
-        print(f"[Safety Checkpoint] Upper target reached (+{(tinyPeanutSize * 70):.8f} over safety). Returning to base bet.", flush=True)
+    safetyCheckpointtwo = float(safetyCheckpointtwo)
+
+    if (walletStash > safetyCheckpointtwo):
+        safetyCheckpointtwo = float(walletStash)
+
+    if (walletStash>(safetyCheckpoint+(tinyPeanutSize*70))):
         currentWagerAmount = round(float(tinyPeanutSize), 8)
         checkpointJuice = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
+        safetyCheckpointtwo = float(((math.ceil(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + (tinyPeanutSize * 10))
         safetyCheckpoint = float(((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) - (tinyPeanutSize * 10))
-
-    if currentWagerAmount > backupPeanut:
-        if walletStash >= (checkpointJuice + (currentWagerAmount * 4.9)):
-            currentWagerAmount = round(float(currentWagerAmount + currentWagerAmount), 8)
-            checkpointJuice = float(walletStash)
-        if walletStash <= (checkpointJuice - (currentWagerAmount * 4.9)):
-            currentWagerAmount = round(float(currentWagerAmount + currentWagerAmount), 8)
-            checkpointJuice = float(walletStash)
-            
-    if currentWagerAmount <= backupPeanut:
-        if walletStash >= (checkpointJuice + (currentWagerAmount * 6.9)):
-            currentWagerAmount = round(float(currentWagerAmount + currentWagerAmount), 8)
-            checkpointJuice = float(walletStash)
-        if walletStash <= (checkpointJuice - (currentWagerAmount * 2.9)):
-            currentWagerAmount = round(float(currentWagerAmount + currentWagerAmount), 8)
-            checkpointJuice = float(walletStash)
-
-    if (((walletStash - (safetyCheckpoint + (currentWagerAmount * 2))) < currentWagerAmount) and (walletStash != checkpointJuice)):
+       
+    if (((walletStash - (safetyCheckpoint + (currentWagerAmount * 2))) < tinyPeanutSize) and (walletStash != checkpointJuice) and (float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) > 0)):
         currentWagerAmount = round(float(tinyPeanutSize), 8)
         checkpointJuice = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
         safetyCheckpoint = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
+        safetyCheckpointtwo = float(((math.ceil(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + (tinyPeanutSize * 10))
+
+    if (((walletStash - (safetyCheckpoint + (currentWagerAmount * 2))) < tinyPeanutSize) and (walletStash != checkpointJuice) and (float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) <= 0)):
+        currentWagerAmount = round(float(tinyPeanutSize), 8)
+        checkpointJuice = 0
+        safetyCheckpoint = 0
+        safetyCheckpointtwo = (tinyPeanutSize * 10)
 
     if (((walletStash - (safetyCheckpoint + (currentWagerAmount * 4))) < currentWagerAmount) and (walletStash == checkpointJuice)):
-        currentWagerAmount = round(float(tinyPeanutSize + tinyPeanutSize), 8)
+        currentWagerAmount = round(float((round(tinyPeanutSize, 8))*2), 8)
         checkpointJuice = float(walletStash)
-        safetyCheckpoint = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
-
-    if ((currentWagerAmount > backupPeanut) and ((walletStash - (currentWagerAmount +(safetyCheckpoint + (currentWagerAmount * 4)))) < currentWagerAmount) and ((walletStash - currentWagerAmount) == (checkpointJuice - (currentWagerAmount * 4.9)))):
-        currentWagerAmount = round(float(tinyPeanutSize), 8)
-        checkpointJuice = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
-        safetyCheckpoint = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
-
-    if ((currentWagerAmount > backupPeanut) and (((walletStash + currentWagerAmount) - (safetyCheckpoint + (currentWagerAmount * 4))) < currentWagerAmount) and ((walletStash + currentWagerAmount) == (checkpointJuice + (currentWagerAmount * 4.9)))):
-        currentWagerAmount = round(float(tinyPeanutSize), 8)
-        checkpointJuice = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
+        safetyCheckpointtwo = float(((math.ceil(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + (tinyPeanutSize * 10))
         safetyCheckpoint = float(((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) - (tinyPeanutSize * 10))
 
-    if ((currentWagerAmount <= backupPeanut) and ((walletStash - (currentWagerAmount + (safetyCheckpoint + (currentWagerAmount * 4)))) < currentWagerAmount) and ((walletStash - currentWagerAmount) == (checkpointJuice - (currentWagerAmount * 2.9)))):
-        currentWagerAmount = round(float(tinyPeanutSize), 8)
-        checkpointJuice = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
-        safetyCheckpoint = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
-
-    if ((currentWagerAmount <= backupPeanut) and (((walletStash + currentWagerAmount) - (safetyCheckpoint + (currentWagerAmount * 4))) < currentWagerAmount) and ((walletStash + currentWagerAmount) == (checkpointJuice + (currentWagerAmount * 6.9)))):
-        currentWagerAmount = round(float(tinyPeanutSize), 8)
-        checkpointJuice = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
-        safetyCheckpoint = float(((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) - (tinyPeanutSize * 10))
+    if ((walletStash != checkpointJuice) and (walletStash < (((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + (tinyPeanutSize * 7.9))) and (walletStash > (((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + (tinyPeanutSize * 6.9)))):
+        currentWagerAmount = round(float((round(currentWagerAmount, 8)) * 2), 8)
+        checkpointJuice = float(walletStash)
 
     return round(float(currentWagerAmount), 8)
 
@@ -256,6 +251,12 @@ def initialize_bot_state():
         if savedState
         else float(((math.floor(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) - (tinyPeanutSize * 10))
     )
+    global safetyCheckpointtwo
+    safetyCheckpointtwo = (
+        float(savedState.get("safetyCheckpointtwo", float(((math.ceil(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + (tinyPeanutSize * 10))))
+        if savedState
+        else float(((math.ceil(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + (tinyPeanutSize * 10))
+    )
 
     last_observed_balance = current_bal
     current_time = time.time()
@@ -266,35 +267,31 @@ def initialize_bot_state():
     total_profit_init = walletStash - trueOriginalBalance
     print(f"[System] Connected to WolfBet! Balance: {walletStash:.8f} {currency_symbol.upper()} | Master Original: {trueOriginalBalance:.8f} | Total Profit: {total_profit_init:+.8f}", flush=True)
 
-def run_betting_loop():
+async def run_betting_loop():
     global walletStash, last_observed_balance, last_balance_change_time
     global previousWagerAmount, previousWalletState
     global trueOriginalBalance, startingPocketChange, tinyPeanutSize, backupPeanut, tenPeanuts
     global currentWagerAmount, checkpointJuice, wobbleFactor, safetyCheckpoint
     global watchdog_threshold, last_bet_timestamp, last_activity_timestamp, has_placed_first_bet
 
-    print("[Watchdog] Starting high-speed single-bet execution loop with Safety Checkpoint Return & Master State Tracking...", flush=True)
+    print("[Watchdog] Starting high-speed execution loop with Async Progression Step & Master State Tracking...", flush=True)
 
     while True:
-        computedNextBet = calculate_next_progression_step(previousWagerAmount)
+        if (time.time() - last_activity_timestamp) > watchdog_threshold:
+            print(f"[Watchdog Warning] Inactivity threshold ({watchdog_threshold}s) exceeded. Checking connection and balance...", flush=True)
+            bal_check = get_user_balance()
+            if bal_check is not None:
+                walletStash = bal_check
+                last_activity_timestamp = time.time()
+                print(f"[Watchdog] Connection active. Current balance: {walletStash:.8f}", flush=True)
+            else:
+                print(f"[Watchdog Error] Failed to reach API. Waiting before retry...", flush=True)
+                await asyncio.sleep(5.0)
+                continue
 
-        compound_target = startingPocketChange * 3
-        if walletStash >= compound_target:
-            cycle_profit = walletStash - startingPocketChange
-            total_profit = walletStash - trueOriginalBalance
-            print(f"\n[Compound Triggered] Hit cycle threshold (+{cycle_profit:.8f}). Cumulative Total Profit: {total_profit:+.8f}. Realigning state file...", flush=True)
-            
-            if os.path.exists(STATE_FILE):
-                try:
-                    os.remove(STATE_FILE)
-                except Exception:
-                    pass
-            
-            initialize_bot_state()
-            print(f"[Compound] Bot successfully reloaded. Master Original: {trueOriginalBalance:.8f} | New Baseline: {startingPocketChange:.8f} | New tinyPeanutSize: {tinyPeanutSize:.8f}", flush=True)
-            continue
+        computedNextBet = await calculate_next_progression_step(previousWagerAmount)
 
-        if walletStash >= (startingPocketChange*24):
+        if walletStash >= (startingPocketChange * 3):
             total_profit = walletStash - trueOriginalBalance
             print(f"\n[System] TARGET REACHED ({walletStash:.8f}). Total Cumulative Profit: {total_profit:+.8f}. Halting execution.", flush=True)
             for f_path in [STATE_FILE, MASTER_STATE_FILE]:
@@ -321,6 +318,7 @@ def run_betting_loop():
         
         if bet_response and "bet" in bet_response:
             previousWagerAmount = computedNextBet
+            last_bet_timestamp = time.time()
             
             updated = False
             user_bal_obj = bet_response.get("user_balance")
@@ -354,8 +352,8 @@ def run_betting_loop():
             save_state()
 
         else:
-            print("[Error] Failed or rate-limited on bet placement. Retrying...", flush=True)
-            time.sleep(0.1)
+            print("[Error] Failed or rate-limited on bet placement. Retrying with backoff...", flush=True)
+            await asyncio.sleep(1.0)
 
 def main():
     global api_token, currency_symbol
@@ -368,7 +366,11 @@ def main():
         currency_symbol = currency_input
 
     initialize_bot_state()
-    run_betting_loop()
+    try:
+        asyncio.run(run_betting_loop())
+    except KeyboardInterrupt:
+        print("\n[System] Bot stopped by user. Saving final state...", flush=True)
+        save_state()
 
 if __name__ == "__main__":
     main()
