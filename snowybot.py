@@ -6,12 +6,12 @@ import sys
 import time
 import pwinput
 
-from PyQt5.QtCore import QUrl, QTimer, Qt
+from PyQt5.QtCore import QUrl, QTimer, Qt, QEventLoop
 from PyQt5.QtWidgets import QApplication, QMainWindow
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineProfile, QWebEnginePage
 
-STATE_FILE = ".bot_state.json"
-MASTER_STATE_FILE = ".bot_master_state.json"
+STATE_FILE = "bot_state.json"
+MASTER_STATE_FILE = "bot_master_state.json"
 LOG_OUT = ".bot_output.log"
 LOG_ERR = ".bot_error.log"
 
@@ -41,12 +41,16 @@ password = ""
 code_2fa = ""
 logged_in = False
 
+# Global reference to allow standalone functions to query the browser DOM
+_active_window = None
+
 
 def load_state():
     if os.path.exists(STATE_FILE):
         try:
             with open(STATE_FILE, "r") as f:
-                return json.load(f)
+                data = json.load(f)
+                return data
         except Exception as e:
             print(f"[Error] Failed to load state file: {e}", flush=True)
     return None
@@ -94,54 +98,97 @@ def save_master_state(balance):
         print(f"[Error] Failed to save master state file: {e}", flush=True)
 
 
+def get_balance():
+    """
+    Synchronously fetches the balance from the DOM using a local QEventLoop.
+    Allows direct usage: walletStash = get_balance()
+    """
+    global _active_window
+    if not _active_window or not hasattr(_active_window, "browser"):
+        return float(walletStash)
+
+    loop = QEventLoop()
+    bal_result = [0.0]
+
+    def callback(res_json):
+        try:
+            data = json.loads(res_json)
+            if data.get("error") != "DOM_NOT_READY":
+                bal_result[0] = round(float(str(data.get("balance", "0")).replace(",", "").strip()), 8)
+        except Exception as e:
+            print(f"[Debug] Get balance parse error: {e} | Raw JSON: {res_json}", flush=True)
+        loop.quit()
+
+    js_fetch_dom = """
+    (function() {
+        var bElem = document.getElementById('pct_balance');
+        if (!bElem) { return JSON.stringify({error: 'DOM_NOT_READY'}); }
+        var bal = bElem.value || '0';
+        return JSON.stringify({balance: bal});
+    })();
+    """
+    _active_window.browser.page().runJavaScript(js_fetch_dom, callback)
+    loop.exec_()
+    return bal_result[0]
+
+
 def calculate_next_progression_step(incoming_wager):
-    global walletStash, currentWagerAmount, wobbleFactor, checkpointJuice, safetyCheckpoint, tinyPeanutSize, backupPeanut, safetyCheckpointtwo
+    global walletStash, currentWagerAmount, wobbleFactor, checkpointJuice, safetyCheckpoint, tinyPeanutSize, backupPeanut, safetyCheckpointtwo, startingPocketChange
 
     currentWagerAmount = round(float(incoming_wager), 8)
-    walletStash = float(walletStash)
+    walletStash = get_balance()
     checkpointJuice = float(checkpointJuice)
     safetyCheckpoint = float(safetyCheckpoint)
     safetyCheckpointtwo = float(safetyCheckpointtwo)
+    startingPocketChange = float(startingPocketChange)
 
-    if (walletStash > safetyCheckpointtwo):
-        safetyCheckpointtwo = float(walletStash)
+    chunk_size = tinyPeanutSize * 10
+    chunk_sizetwo = tinyPeanutSize * 40
 
-    if (walletStash>(safetyCheckpoint+(tinyPeanutSize*70))):
-        currentWagerAmount = float(round(float(tinyPeanutSize), 8))
+    if (walletStash >= ((math.ceil(safetyCheckpointtwo / chunk_sizetwo)) * chunk_sizetwo)):
+        currentWagerAmount = round(float(tinyPeanutSize), 8)
         checkpointJuice = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
-        safetyCheckpointtwo = float(((math.ceil(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + (tinyPeanutSize * 10))
-        safetyCheckpoint = float(((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) - (tinyPeanutSize * 10))
+        safetyCheckpoint = round(float(safetyCheckpoint + chunk_size), 8)
+        safetyCheckpointtwo = float(walletStash)
        
-    if (((walletStash - (safetyCheckpoint + (currentWagerAmount * 2))) < tinyPeanutSize) and (walletStash != checkpointJuice) and ((math.floor(walletStash / (tinyPeanutSize * 10))) >=1)):
-        currentWagerAmount = float(round(float(tinyPeanutSize), 8))
+    if ((walletStash<=(safetyCheckpointtwo-chunk_sizetwo)) and ((walletStash - (safetyCheckpoint + (currentWagerAmount * 2))) < tinyPeanutSize) and ((math.floor(walletStash / (tinyPeanutSize * 10))) >= 1)):
+        currentWagerAmount = round(float(tinyPeanutSize), 8)
+        safetyCheckpointtwo = float(walletStash)
         checkpointJuice = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
         safetyCheckpoint = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
-        safetyCheckpointtwo = float(((math.ceil(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + (tinyPeanutSize * 10))
 
-    if (((walletStash - (currentWagerAmount * 2)) < tinyPeanutSize) and (walletStash != checkpointJuice) and ((math.floor(walletStash / (tinyPeanutSize * 10))) <=0)):
-        currentWagerAmount = float(round(float(tinyPeanutSize), 8))
+    if ((walletStash<=(safetyCheckpointtwo-chunk_sizetwo)) and ((walletStash - (currentWagerAmount * 2)) < tinyPeanutSize) and ((math.floor(walletStash / (tinyPeanutSize * 10))) <= 0)):
+        currentWagerAmount = round(float(tinyPeanutSize), 8)
         checkpointJuice = 0
         safetyCheckpoint = 0
-        safetyCheckpointtwo = (tinyPeanutSize * 10)
+        safetyCheckpointtwo = float(walletStash)
+
+    if ((walletStash<=(safetyCheckpointtwo-chunk_sizetwo)) and ((walletStash - (currentWagerAmount * 2)) < tinyPeanutSize) and ((math.floor(walletStash / (tinyPeanutSize * 10))) >= 1)):
+        currentWagerAmount = round(float(tinyPeanutSize), 8)
+        safetyCheckpointtwo = float(walletStash)
+        checkpointJuice = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
+        safetyCheckpoint = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
+
+    if ((walletStash>(safetyCheckpointtwo-chunk_sizetwo)) and ((walletStash - (safetyCheckpoint + (currentWagerAmount * 2))) < tinyPeanutSize) and ((math.floor(walletStash / (tinyPeanutSize * 10))) >= 1)):
+        currentWagerAmount = round(float(tinyPeanutSize), 8)
+        checkpointJuice = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
+        safetyCheckpoint = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
+
+    if ((walletStash>(safetyCheckpointtwo-chunk_sizetwo)) and ((walletStash - (currentWagerAmount * 2)) < tinyPeanutSize) and ((math.floor(walletStash / (tinyPeanutSize * 10))) <= 0)):
+        currentWagerAmount = round(float(tinyPeanutSize), 8)
+        checkpointJuice = 0
+        safetyCheckpoint = 0
+
+    if ((walletStash>(safetyCheckpointtwo-chunk_sizetwo)) and ((walletStash - (currentWagerAmount * 2)) < tinyPeanutSize) and ((math.floor(walletStash / (tinyPeanutSize * 10))) >= 1)):
+        currentWagerAmount = round(float(tinyPeanutSize), 8)
+        checkpointJuice = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
+        safetyCheckpoint = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
 
     if ((walletStash != checkpointJuice) and (walletStash < (((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + (tinyPeanutSize * 7.9))) and (walletStash > (((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + (tinyPeanutSize * 6.9)))):
-        currentWagerAmount = float(round(((round(float(currentWagerAmount), 8))*2), 8))
+        currentWagerAmount = round(float(currentWagerAmount * 2), 8)
         checkpointJuice = float(walletStash)
-
-    if (((walletStash - (safetyCheckpoint + (currentWagerAmount * 4))) < currentWagerAmount) and (walletStash == checkpointJuice)):
-        currentWagerAmount = float(round(float(tinyPeanutSize), 8))
-        checkpointJuice = float(walletStash)
-        safetyCheckpointtwo = float(((math.ceil(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + (tinyPeanutSize * 10))
-        safetyCheckpoint = float(((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) - (tinyPeanutSize * 10))
-
-    if (((walletStash - (currentWagerAmount * 4)) < currentWagerAmount) and (walletStash == checkpointJuice)):
-        currentWagerAmount = float(round(((round(float(tinyPeanutSize), 8))*2), 8))
-        checkpointJuice = float(walletStash)
-        safetyCheckpointtwo = float(((math.ceil(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + (tinyPeanutSize * 10))
-        safetyCheckpoint = float(((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) - (tinyPeanutSize * 10))
 
     return round(float(currentWagerAmount), 8)
-
 
 
 def log_bet_info(bet_amount, current_balance, total_profit):
@@ -151,6 +198,9 @@ def log_bet_info(bet_amount, current_balance, total_profit):
 class SnowyBotWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        global _active_window
+        _active_window = self
+
         self.setWindowTitle("Snowy Bot - WolfBet Logic Engine (QtWebEngine)")
         self.resize(1024, 768)
 
@@ -279,27 +329,13 @@ class SnowyBotWindow(QMainWindow):
             QTimer.singleShot(10000, self.init_bot_state)
 
     def init_bot_state(self):
-        js_init_data = """
-        (function() {
-            var bal = document.getElementById('pct_balance') ? document.getElementById('pct_balance').value : '0';
-            return JSON.stringify({balance: bal});
-        })();
-        """
-        self.browser.page().runJavaScript(js_init_data, self._init_state_callback)
-
-    def _init_state_callback(self, res_json):
         global trueOriginalBalance, startingPocketChange, tinyPeanutSize, backupPeanut, tenPeanuts
-        global walletStash, previousWalletState
+        global walletStash, previousWalletState, safetyCheckpoint
         global currentWagerAmount, previousWagerAmount
-        global checkpointJuice, wobbleFactor, safetyCheckpoint, safetyCheckpointtwo
+        global checkpointJuice, wobbleFactor, safetyCheckpointtwo
         global last_observed_balance, last_balance_change_time, logged_in, last_bet_timestamp, last_activity_timestamp, watchdog_threshold, has_placed_first_bet
 
-        try:
-            data = json.loads(res_json)
-            current_bal = round(float(str(data.get("balance", "0")).replace(",", "").strip()), 8)
-        except Exception as e:
-            print(f"[Debug] Init state parse error: {e} | Raw JSON: {res_json}", flush=True)
-            current_bal = 0.0
+        current_bal = get_balance()
 
         if current_bal <= 0 and not logged_in:
             print(f"[System] Balance read {current_bal} or session pending... re-checking balance in 5s", flush=True)
@@ -318,7 +354,7 @@ class SnowyBotWindow(QMainWindow):
         startingPocketChange = current_bal
         walletStash = current_bal
 
-        calculated_tiny = float(startingPocketChange / 100.0)
+        calculated_tiny = float(startingPocketChange / 14400.0)
 
         tinyPeanutSize = (
             float(savedState.get("tinyPeanutSize", calculated_tiny))
@@ -344,15 +380,16 @@ class SnowyBotWindow(QMainWindow):
             else float((math.floor(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
         )
         wobbleFactor = float(savedState.get("wobbleFactor", 1.0)) if savedState else 1.0
+        
         safetyCheckpoint = (
             float(savedState.get("safetyCheckpoint", float(((math.floor(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) - (tinyPeanutSize * 10))))
             if savedState
             else float(((math.floor(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) - (tinyPeanutSize * 10))
         )
         safetyCheckpointtwo = (
-            float(savedState.get("safetyCheckpointtwo", float(((math.ceil(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + (tinyPeanutSize * 10))))
+            float(savedState.get("safetyCheckpointtwo", float(default_chk)))
             if savedState
-            else float(((math.ceil(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + (tinyPeanutSize * 10))
+            else float(default_chk)
         )
 
         last_observed_balance = current_bal
@@ -373,30 +410,14 @@ class SnowyBotWindow(QMainWindow):
         if not logged_in:
             return
 
-        js_fetch_dom = """
-        (function() {
-            var bElem = document.getElementById('pct_balance');
-            if (!bElem) { return JSON.stringify({error: 'DOM_NOT_READY'}); }
-            var bal = bElem.value || '0';
-            return JSON.stringify({balance: bal});
-        })();
-        """
-        self.browser.page().runJavaScript(js_fetch_dom, self._process_loop_data)
-
-    def _process_loop_data(self, res_json):
         global walletStash, last_observed_balance, last_balance_change_time
         global previousWagerAmount, previousWalletState
         global trueOriginalBalance, startingPocketChange, tinyPeanutSize, backupPeanut, tenPeanuts
         global currentWagerAmount, checkpointJuice, wobbleFactor, safetyCheckpoint, safetyCheckpointtwo
         global watchdog_threshold, last_bet_timestamp, last_activity_timestamp, has_placed_first_bet
 
-        try:
-            data = json.loads(res_json)
-            if data.get("error") == "DOM_NOT_READY":
-                return
-            walletStash = round(float(str(data.get("balance", "0")).replace(",", "").strip()), 8)
-        except Exception as e:
-            print(f"[Debug] Loop parse error: {e} | Raw JSON: {res_json}", flush=True)
+        walletStash = get_balance()
+        if walletStash <= 0:
             return
 
         current_time = time.time()
@@ -482,14 +503,27 @@ class SnowyBotWindow(QMainWindow):
 def main():
     global username, password, code_2fa
 
+    # 1. Collect inputs FIRST so prompts show up properly
     username = input("User: ")
     password = pwinput.pwinput(prompt="Pass: ", mask="*")
     code_2fa = pwinput.pwinput(prompt="2FA (optional, press Enter to skip): ", mask="*")
+
+    # 2. Block all native C-level stderr junk (ALSA/Pulse/Chromium) AFTER inputs
+    try:
+        sys.stderr.flush()
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(devnull, sys.stderr.fileno())
+        os.close(devnull)
+    except Exception:
+        pass
 
     if sys.platform == "win32":
         os.environ["QT_OPENGL"] = "angle"
     else:
         os.environ["QT_QPA_PLATFORM"] = "offscreen"
+        os.environ["PULSE_SERVER"] = ""
+        os.environ["SDL_AUDIODRIVER"] = "dummy"
+        os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--mute-audio --log-level=3 --disable-speech-api"
 
     app = QApplication(sys.argv)
     window = SnowyBotWindow()
