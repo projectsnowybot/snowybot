@@ -209,7 +209,7 @@ def initialize_bot_state():
     startingPocketChange = current_bal
     walletStash = current_bal
 
-    calculated_tiny = float(startingPocketChange / 14400.0)
+    calculated_tiny = float(startingPocketChange / 1440000.0)
 
     tinyPeanutSize = (
         float(savedState.get("tinyPeanutSize", calculated_tiny))
