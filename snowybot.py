@@ -140,52 +140,35 @@ def calculate_next_progression_step(incoming_wager):
     checkpointJuice = float(checkpointJuice)
     safetyCheckpoint = float(safetyCheckpoint)
     safetyCheckpointtwo = float(safetyCheckpointtwo)
-    startingPocketChange = float(startingPocketChange)
+    chunk_size = (tinyPeanutSize * 80)
+    chunk_sizetwo = (tinyPeanutSize * 10)
+    chunk_sevens = (tinyPeanutSize * 6.9)
+    chunk_eights = (tinyPeanutSize * 7.9)
 
-    chunk_size = tinyPeanutSize * 10
-    chunk_sizetwo = tinyPeanutSize * 40
-
-    if (walletStash >= ((math.ceil(safetyCheckpointtwo / chunk_sizetwo)) * chunk_sizetwo)):
-        currentWagerAmount = round(float(tinyPeanutSize), 8)
+    if (((safetyCheckpointtwo-(chunk_size*2))<=safetyCheckpoint) and (walletStash >= (safetyCheckpointtwo + chunk_sizetwo))):
+        currentWagerAmount = float(tinyPeanutSize)
+        chunk_sizetwo = (tinyPeanutSize * 10)
+        safetyCheckpoint = safetyCheckpoint+chunk_size
         checkpointJuice = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
-        safetyCheckpoint = round(float(safetyCheckpoint + chunk_size), 8)
+        safetyCheckpointtwo = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
+
+    if (((safetyCheckpointtwo-(chunk_size*2))>safetyCheckpoint) and (walletStash >= (safetyCheckpointtwo + chunk_sizetwo))):
+        currentWagerAmount = float(tinyPeanutSize)
+        chunk_sizetwo = (tinyPeanutSize * 10)
+        checkpointJuice = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
+        safetyCheckpointtwo = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
+
+    if ((walletStash - ((safetyCheckpoint - chunk_size) + (currentWagerAmount * 2))) < tinyPeanutSize):
+        currentWagerAmount = float(tinyPeanutSize)
         safetyCheckpointtwo = float(walletStash)
-       
-    if ((walletStash<=(safetyCheckpointtwo-chunk_sizetwo)) and ((walletStash - (safetyCheckpoint + (currentWagerAmount * 2))) < tinyPeanutSize) and ((math.floor(walletStash / (tinyPeanutSize * 10))) >= 1)):
-        currentWagerAmount = round(float(tinyPeanutSize), 8)
-        safetyCheckpointtwo = float(walletStash)
+        chunk_sizetwo = 0
         checkpointJuice = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
-        safetyCheckpoint = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
+        safetyCheckpoint = float(((math.floor(walletStash / (tinyPeanutSize * 10))) - 1) * (tinyPeanutSize * 10))
 
-    if ((walletStash<=(safetyCheckpointtwo-chunk_sizetwo)) and ((walletStash - (currentWagerAmount * 2)) < tinyPeanutSize) and ((math.floor(walletStash / (tinyPeanutSize * 10))) <= 0)):
-        currentWagerAmount = round(float(tinyPeanutSize), 8)
-        checkpointJuice = 0
-        safetyCheckpoint = 0
-        safetyCheckpointtwo = float(walletStash)
-
-    if ((walletStash<=(safetyCheckpointtwo-chunk_sizetwo)) and ((walletStash - (currentWagerAmount * 2)) < tinyPeanutSize) and ((math.floor(walletStash / (tinyPeanutSize * 10))) >= 1)):
-        currentWagerAmount = round(float(tinyPeanutSize), 8)
-        safetyCheckpointtwo = float(walletStash)
-        checkpointJuice = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
-        safetyCheckpoint = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
-
-    if ((walletStash>(safetyCheckpointtwo-chunk_sizetwo)) and ((walletStash - (safetyCheckpoint + (currentWagerAmount * 2))) < tinyPeanutSize) and ((math.floor(walletStash / (tinyPeanutSize * 10))) >= 1)):
-        currentWagerAmount = round(float(tinyPeanutSize), 8)
-        checkpointJuice = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
-        safetyCheckpoint = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
-
-    if ((walletStash>(safetyCheckpointtwo-chunk_sizetwo)) and ((walletStash - (currentWagerAmount * 2)) < tinyPeanutSize) and ((math.floor(walletStash / (tinyPeanutSize * 10))) <= 0)):
-        currentWagerAmount = round(float(tinyPeanutSize), 8)
-        checkpointJuice = 0
-        safetyCheckpoint = 0
-
-    if ((walletStash>(safetyCheckpointtwo-chunk_sizetwo)) and ((walletStash - (currentWagerAmount * 2)) < tinyPeanutSize) and ((math.floor(walletStash / (tinyPeanutSize * 10))) >= 1)):
-        currentWagerAmount = round(float(tinyPeanutSize), 8)
-        checkpointJuice = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
-        safetyCheckpoint = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
-
-    if ((walletStash != checkpointJuice) and (walletStash < (((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + (tinyPeanutSize * 7.9))) and (walletStash > (((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + (tinyPeanutSize * 6.9)))):
-        currentWagerAmount = round(float(currentWagerAmount * 2), 8)
+    mayjor = (((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + chunk_eights)
+    raloy = (((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + chunk_sevens)
+    if ((walletStash != checkpointJuice) and (walletStash > raloy) and (walletStash < mayjor)):
+        currentWagerAmount = round(float(currentWagerAmount + currentWagerAmount), 8)
         checkpointJuice = float(walletStash)
 
     return round(float(currentWagerAmount), 8)
@@ -351,8 +334,8 @@ class SnowyBotWindow(QMainWindow):
 
         savedState = load_state()
 
-        startingPocketChange = current_bal
-        walletStash = current_bal
+        startingPocketChange = float(current_bal)
+        walletStash = float(current_bal)
 
         calculated_tiny = float(startingPocketChange / 14400.0)
 
