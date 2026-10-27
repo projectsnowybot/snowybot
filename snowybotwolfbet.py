@@ -171,13 +171,11 @@ async def calculate_next_progression_step(incoming_wager):
         checkpointJuice = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
         safetyCheckpointtwo = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
 
-    mayjor = (((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + chunk_eights)
-    raloy = (((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + chunk_sevens)
-    if ((walletStash > checkpointJuice) and (walletStash > raloy) and (walletStash < mayjor)):
+    if ((walletStash > checkpointJuice) and (walletStash > (((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + chunk_sevens)) and (walletStash < (((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + chunk_eights))):
         currentWagerAmount = round(float(currentWagerAmount + currentWagerAmount), 8)
         checkpointJuice = float(walletStash)
 
-    if ((walletStash < checkpointJuice) and (walletStash > raloy) and (walletStash < mayjor)):
+    if ((walletStash < checkpointJuice) and (walletStash > (((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + chunk_sevens)) and (walletStash < (((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + chunk_eights))):
         currentWagerAmount = round(float(currentWagerAmount + currentWagerAmount), 8)
         chunk_sizetwo = 0
         checkpointJuice = float(walletStash)
