@@ -151,17 +151,14 @@ def calculate_next_progression_step(incoming_wager):
         checkpointJuice = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
         safetyCheckpointtwo = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
 
-    mayjor = (((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + chunk_eights)
-    raloy = (((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + chunk_sevens)
-    if ((walletStash > checkpointJuice) and (walletStash > raloy) and (walletStash < mayjor)):
+    if ((walletStash > checkpointJuice) and (walletStash > (((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + chunk_sevens)) and (walletStash < (((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + chunk_eights))):
         currentWagerAmount = round(float(currentWagerAmount + currentWagerAmount), 8)
         checkpointJuice = float(walletStash)
 
-    if ((walletStash < checkpointJuice) and (walletStash > raloy) and (walletStash < mayjor)):
+    if ((walletStash < checkpointJuice) and (walletStash > (((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + chunk_sevens)) and (walletStash < (((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + chunk_eights))):
         currentWagerAmount = round(float(currentWagerAmount + currentWagerAmount), 8)
         chunk_sizetwo = 0
         checkpointJuice = float(walletStash)
-
 
     return round(float(currentWagerAmount), 8)
 
@@ -400,6 +397,11 @@ class SnowyBotWindow(QMainWindow):
 
         # Check if balance changed
         balance_changed = (walletStash == round((last_observed_balance + previousWagerAmount), 8) or walletStash == round((last_observed_balance - previousWagerAmount), 8))
+        
+        seriously_retarded_hacker_stopper_threshold = ((walletStash==last_observed_balance) or balance_changed)
+        if not seriously_retarded_hacker_stopper_threshold:
+            print("seriously_retarded_hacker_stopper activated fuck off hacker i'm exiting you big retard")
+            sys.exit(0)
 
         if walletStash > 0 and balance_changed:
             last_balance_change_time = current_time
