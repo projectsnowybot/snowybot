@@ -200,7 +200,20 @@ class SnowyBotWindow(QMainWindow):
         page = QWebEnginePage(profile, self)
         self.browser = QWebEngineView()
         self.browser.setPage(page)
+        
+        # Track loading status for the watchdog loop
+        self.is_loaded = False
+        page.loadFinished.connect(self._handle_load_finished)
+        
         self.setCentralWidget(self.browser)
+
+    def _handle_load_finished(self, ok):
+        if ok:
+            print("[Watchdog] Webview successfully finished loading page content.", flush=True)
+            self.is_loaded = True
+        else:
+            print("[Watchdog Warning] Webview failed to load page properly.", flush=True)
+            self.is_loaded = False
 
     def start_full_login_sequence(self, wipe_data=True):
         global logged_in, has_placed_first_bet
@@ -383,6 +396,10 @@ class SnowyBotWindow(QMainWindow):
         if not logged_in:
             return
 
+        # Watchdog loop check: ensure webview has loaded before proceeding with cycle
+        if not getattr(self, "is_loaded", False):
+            return
+
         global walletStash, last_observed_balance, last_balance_change_time
         global previousWagerAmount, previousWalletState
         global trueOriginalBalance, startingPocketChange, tinyPeanutSize, backupPeanut, tenPeanuts
@@ -411,7 +428,7 @@ class SnowyBotWindow(QMainWindow):
         elapsed_stagnation = current_time - last_balance_change_time
 
         if elapsed_stagnation >= watchdog_threshold or walletStash <= 0:
-            print(f"[Watchdog] Balance has stalled, reloading page...", flush=True)
+            print(f"[Watchdog] Balance has stalled or load timed out, reloading page...", flush=True)
             self.trigger_watchdog_refresh()
             return
 
@@ -460,6 +477,7 @@ class SnowyBotWindow(QMainWindow):
     def trigger_watchdog_refresh(self):
         global watchdog_threshold, has_placed_first_bet
         self.timer.stop()
+        self.is_loaded = False  # Reset load status for watchdog loop
         self.browser.reload()
         
         has_placed_first_bet = False
