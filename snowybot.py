@@ -505,13 +505,7 @@ def main():
     code_2fa = pwinput.pwinput(prompt="2FA (optional, press Enter to skip): ", mask="*")
 
     # 2. Block all native C-level stderr junk (ALSA/Pulse/Chromium) AFTER inputs
-    try:
-        sys.stderr.flush()
-        devnull = os.open(os.devnull, os.O_WRONLY)
-        os.dup2(devnull, sys.stderr.fileno())
-        os.close(devnull)
-    except Exception:
-        pass
+
 
     if sys.platform == "win32":
         os.environ["QT_OPENGL"] = "angle"
