@@ -6,6 +6,16 @@ import sys
 import time
 import pwinput
 
+# Enforce software rendering, disable GPU/hardware acceleration, and mute audio
+os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = (
+    "--disable-gpu "
+    "--disable-software-rasterizer "
+    "--disable-dev-shm-usage "
+    "--no-sandbox "
+    "--mute-audio "
+    "--disable-speech-api"
+)
+
 from PyQt5.QtCore import QUrl, QTimer, Qt, QEventLoop
 from PyQt5.QtWidgets import QApplication, QMainWindow
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineProfile, QWebEnginePage
@@ -34,27 +44,23 @@ last_observed_balance = 0.0
 last_bet_timestamp = time.time()
 last_activity_timestamp = time.time()
 has_placed_first_bet = False
-watchdog_threshold = 10.0
+watchdog_threshold = 15.0
 
 username = ""
 password = ""
 code_2fa = ""
 logged_in = False
 
-# Global reference to allow standalone functions to query the browser DOM
 _active_window = None
-
 
 def load_state():
     if os.path.exists(STATE_FILE):
         try:
             with open(STATE_FILE, "r") as f:
-                data = json.load(f)
-                return data
+                return json.load(f)
         except Exception as e:
             print(f"[Error] Failed to load state file: {e}", flush=True)
     return None
-
 
 def save_state():
     bot_state = {
@@ -78,7 +84,6 @@ def save_state():
     except Exception as e:
         print(f"[Error] Failed to save state file: {e}", flush=True)
 
-
 def load_master_state():
     if os.path.exists(MASTER_STATE_FILE):
         try:
@@ -88,7 +93,6 @@ def load_master_state():
             print(f"[Error] Failed to load master state file: {e}", flush=True)
     return None
 
-
 def save_master_state(balance):
     master_state = {"trueOriginalBalance": balance}
     try:
@@ -97,12 +101,7 @@ def save_master_state(balance):
     except Exception as e:
         print(f"[Error] Failed to save master state file: {e}", flush=True)
 
-
 def get_balance():
-    """
-    Synchronously fetches the balance from the DOM using a local QEventLoop.
-    Allows direct usage: walletStash = get_balance()
-    """
     global _active_window
     if not _active_window or not hasattr(_active_window, "browser"):
         return float(walletStash)
@@ -131,41 +130,49 @@ def get_balance():
     loop.exec_()
     return bal_result[0]
 
-
 def calculate_next_progression_step(incoming_wager):
     global walletStash, currentWagerAmount, wobbleFactor, checkpointJuice, safetyCheckpoint, tinyPeanutSize, backupPeanut, safetyCheckpointtwo, startingPocketChange
 
-    currentWagerAmount = round(float(incoming_wager), 8)
+    base_wager = round(float(incoming_wager), 8)
     walletStash = get_balance()
     checkpointJuice = float(checkpointJuice)
     safetyCheckpoint = float(safetyCheckpoint)
     safetyCheckpointtwo = float(safetyCheckpointtwo)
-    chunk_size = (tinyPeanutSize * 80)
-    chunk_sizetwo = (tinyPeanutSize * 10)
-    chunk_sevens = (tinyPeanutSize * 6.9)
-    chunk_eights = (tinyPeanutSize * 7.9)
+    
+    backupPeanut = tinyPeanutSize
 
-    if (walletStash >= (safetyCheckpointtwo + chunk_sizetwo)):
-        currentWagerAmount = float(tinyPeanutSize)
-        chunk_sizetwo = (tinyPeanutSize * 10)
-        checkpointJuice = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
-        safetyCheckpointtwo = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
-
-    if ((walletStash > checkpointJuice) and (walletStash > (((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + chunk_sevens)) and (walletStash < (((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + chunk_eights))):
-        currentWagerAmount = round(float(currentWagerAmount + currentWagerAmount), 8)
-        checkpointJuice = float(walletStash)
-
-    if ((walletStash < checkpointJuice) and (walletStash > (((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + chunk_sevens)) and (walletStash < (((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + chunk_eights))):
-        currentWagerAmount = round(float(currentWagerAmount + currentWagerAmount), 8)
-        chunk_sizetwo = 0
-        checkpointJuice = float(walletStash)
+    if walletStash >= round(safetyCheckpoint + ((tinyPeanutSize * 10) * wobbleFactor), 8):
+        currentWagerAmount = round(float(tinyPeanutSize), 8)
+        wobbleFactor = 1.0
+        checkpointJuice = round(float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)), 8)
+        safetyCheckpoint = round(float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)), 8)
+        return currentWagerAmount
+    
+    if base_wager > backupPeanut:
+        if walletStash > round(checkpointJuice + (base_wager * 5.0), 8):
+            currentWagerAmount = round(float(base_wager * 2.0), 8)
+            checkpointJuice = round(float(walletStash), 8)
+        elif walletStash < round(checkpointJuice - (base_wager * 5.0), 8):
+            currentWagerAmount = round(float(base_wager * 2.0), 8)
+            wobbleFactor = 0.0
+            checkpointJuice = round(float(walletStash), 8)
+        else:
+            currentWagerAmount = base_wager
+            
+    if base_wager <= backupPeanut:
+        if walletStash > round(checkpointJuice + round(base_wager * 7.0, 8), 8):
+            currentWagerAmount = round(float(base_wager * 2.0), 8)
+            checkpointJuice = round(float(walletStash), 8)
+        elif walletStash < round(checkpointJuice - round(base_wager * 3.0, 8), 8):
+            currentWagerAmount = round(float(base_wager * 2.0), 8)
+            checkpointJuice = round(float(walletStash), 8)
+        else:
+            currentWagerAmount = base_wager
 
     return round(float(currentWagerAmount), 8)
 
-
 def log_bet_info(bet_amount, current_balance, total_profit):
     print(f"Bet: {bet_amount:.8f} | Balance: {current_balance:.8f} | Total Profit: {total_profit:+.8f}", flush=True)
-
 
 class SnowyBotWindow(QMainWindow):
     def __init__(self):
@@ -175,6 +182,9 @@ class SnowyBotWindow(QMainWindow):
 
         self.setWindowTitle("Snowy Bot - WolfBet Logic Engine (QtWebEngine)")
         self.resize(1024, 768)
+
+        self.watchdog_fail_count = 0
+        self.login_fail_count = 0
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.runPrimaryBettingLoop)
@@ -189,6 +199,7 @@ class SnowyBotWindow(QMainWindow):
             print("[System] Wiping browser cache, cookies, and site data...", flush=True)
             profile.clearHttpCache()
             profile.clearAllVisitedLinks()
+            profile.cookieStore().deleteAllCookies()
 
         ua_string = (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -201,7 +212,6 @@ class SnowyBotWindow(QMainWindow):
         self.browser = QWebEngineView()
         self.browser.setPage(page)
         
-        # Track loading status for the watchdog loop
         self.is_loaded = False
         page.loadFinished.connect(self._handle_load_finished)
         
@@ -212,7 +222,7 @@ class SnowyBotWindow(QMainWindow):
             print("[Watchdog] Webview successfully finished loading page content.", flush=True)
             self.is_loaded = True
         else:
-            print("[Watchdog Warning] Webview failed to load page properly.", flush=True)
+            print("[Watchdog Warning] Webview page load signal received with errors.", flush=True)
             self.is_loaded = False
 
     def start_full_login_sequence(self, wipe_data=True):
@@ -307,9 +317,18 @@ class SnowyBotWindow(QMainWindow):
     def _after_login_submitted(self, status):
         print(f"[System] Credentials action: {status}", flush=True)
         if status == 'MISSING_FIELDS':
-            print("[System] Form elements not ready yet. Retrying submission in 5 seconds...", flush=True)
-            QTimer.singleShot(5000, self.submit_login_credentials)
+            self.login_fail_count += 1
+            if self.login_fail_count >= 2:
+                print("[System] Form elements still missing. Reloading webview...", flush=True)
+                self.login_fail_count = 0
+                self.browser.reload()
+                print("[System] Waiting 10 seconds after reload for page stabilization...", flush=True)
+                QTimer.singleShot(10000, self.open_account_tab)
+            else:
+                print(f"[System] Form elements not ready yet (Attempt {self.login_fail_count}/2). Retrying submission in 5 seconds...", flush=True)
+                QTimer.singleShot(5000, self.submit_login_credentials)
         else:
+            self.login_fail_count = 0  # Reset on successful submission
             print("[System] Waiting 10 seconds for post-login stabilization...", flush=True)
             QTimer.singleShot(10000, self.init_bot_state)
 
@@ -346,7 +365,7 @@ class SnowyBotWindow(QMainWindow):
             if savedState
             else calculated_tiny
         )
-        backupPeanut = float(savedState.get("backupPeanut", tinyPeanutSize)) if savedState else tinyPeanutSize
+        backupPeanut = tinyPeanutSize
         tenPeanuts = float(savedState.get("tenPeanuts", tinyPeanutSize * 10)) if savedState else tinyPeanutSize * 10
 
         previousWalletState = float(savedState.get("previousWalletState", walletStash)) if savedState else walletStash
@@ -377,26 +396,25 @@ class SnowyBotWindow(QMainWindow):
             else float((math.floor(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
         )
 
-
         last_observed_balance = current_bal
         current_time = time.time()
         last_balance_change_time = current_time
         last_bet_timestamp = current_time
         last_activity_timestamp = current_time
         has_placed_first_bet = False
-        watchdog_threshold = 10.0
+        watchdog_threshold = 15.0
         logged_in = True
 
         total_profit_init = walletStash - trueOriginalBalance
         print(f"[System] Login verified! Balance: {walletStash:.8f} | Master Original: {trueOriginalBalance:.8f} | Total Profit: {total_profit_init:+.8f}", flush=True)
-        print("[Watchdog] Dynamic 10-second activity & betting stall watchdog is active and monitoring.", flush=True)
-        self.timer.start(50)
+        print("[Watchdog] Dynamic 15-second activity & betting stall watchdog is active and monitoring.", flush=True)
+        self.timer.start(1000)
 
     def runPrimaryBettingLoop(self):
+        global logged_in
         if not logged_in:
             return
 
-        # Watchdog loop check: ensure webview has loaded before proceeding with cycle
         if not getattr(self, "is_loaded", False):
             return
 
@@ -408,31 +426,33 @@ class SnowyBotWindow(QMainWindow):
 
         walletStash = get_balance()
         if walletStash <= 0:
+            print("[Watchdog Warning] Session unauthenticated or balance unavailable. Triggering relogin watchdog...", flush=True)
+            logged_in = False
+            self.trigger_watchdog_refresh()
             return
 
         current_time = time.time()
 
-        # Check if balance changed
         balance_changed = (walletStash == round((last_observed_balance + previousWagerAmount), 8) or walletStash == round((last_observed_balance - previousWagerAmount), 8))
         
-        seriously_retarded_hacker_stopper_threshold = ((walletStash==last_observed_balance) or balance_changed)
+        seriously_retarded_hacker_stopper_threshold = ((walletStash == last_observed_balance) or balance_changed)
         if not seriously_retarded_hacker_stopper_threshold:
-            print("seriously_retarded_hacker_stopper activated fuck off hacker i'm exiting you big retard")
+            print("seriously_retarded_hacker_stopper activated, exiting...")
             sys.exit(0)
 
         if walletStash > 0 and balance_changed:
+            self.watchdog_fail_count = 0  
             last_balance_change_time = current_time
             last_observed_balance = walletStash
             last_activity_timestamp = current_time
 
         elapsed_stagnation = current_time - last_balance_change_time
 
-        if elapsed_stagnation >= watchdog_threshold or walletStash <= 0:
-            print(f"[Watchdog] Balance has stalled or load timed out, reloading page...", flush=True)
+        if elapsed_stagnation >= watchdog_threshold:
+            print(f"[Watchdog] Balance has stalled, triggering cookie wipe and relogin sequence...", flush=True)
             self.trigger_watchdog_refresh()
             return
 
-        # Target reached check (matching target threshold: startingPocketChange * 3)
         if walletStash >= (startingPocketChange * 3):
             total_profit = walletStash - trueOriginalBalance
             print(f"\n[System] TARGET REACHED ({walletStash:.8f}). Total Cumulative Profit: {total_profit:+.8f}. Halting execution.", flush=True)
@@ -444,7 +464,6 @@ class SnowyBotWindow(QMainWindow):
                         pass
             sys.exit(0)
 
-        # Place a new bet if the balance changed OR if we haven't placed our first bet yet
         if balance_changed or not has_placed_first_bet:
             has_placed_first_bet = True
             computedNextBet = calculate_next_progression_step(previousWagerAmount)
@@ -471,41 +490,32 @@ class SnowyBotWindow(QMainWindow):
             previousWagerAmount = computedNextBet
             previousWalletState = walletStash
             last_bet_timestamp = time.time()
-            watchdog_threshold = 10.0
+            watchdog_threshold = 15.0
             save_state()
 
     def trigger_watchdog_refresh(self):
-        global watchdog_threshold, has_placed_first_bet
+        global logged_in, has_placed_first_bet, watchdog_threshold
         self.timer.stop()
-        self.is_loaded = False  # Reset load status for watchdog loop
-        self.browser.reload()
+        logged_in = False
+        self.is_loaded = False 
+        self.watchdog_fail_count += 1
+
+        print("[Watchdog] Clearing cookies, site data, and restarting full login sequence...", flush=True)
         
+        self.browser.page().profile().cookieStore().deleteAllCookies()
+        self.browser.page().profile().clearHttpCache()
+
         has_placed_first_bet = False
         watchdog_threshold = min(watchdog_threshold + 5.0, 30.0)
-        reload_delay = 30000 if walletStash <= 0 else 10000
         
-        def resume_after_refresh():
-            global last_balance_change_time, last_bet_timestamp, last_activity_timestamp
-            t_now = time.time()
-            last_balance_change_time = t_now
-            last_bet_timestamp = t_now
-            last_activity_timestamp = t_now
-            self.timer.start(50)
-            print(f"[Watchdog] Stream stabilized. Resuming betting loop.", flush=True)
-
-        QTimer.singleShot(reload_delay, resume_after_refresh)
-
+        self.start_full_login_sequence(wipe_data=True)
 
 def main():
     global username, password, code_2fa
 
-    # 1. Collect inputs FIRST so prompts show up properly
     username = input("User: ")
     password = pwinput.pwinput(prompt="Pass: ", mask="*")
     code_2fa = pwinput.pwinput(prompt="2FA (optional, press Enter to skip): ", mask="*")
-
-    # 2. Block all native C-level stderr junk (ALSA/Pulse/Chromium) AFTER inputs
-
 
     if sys.platform == "win32":
         os.environ["QT_OPENGL"] = "angle"
@@ -513,13 +523,11 @@ def main():
         os.environ["QT_QPA_PLATFORM"] = "offscreen"
         os.environ["PULSE_SERVER"] = ""
         os.environ["SDL_AUDIODRIVER"] = "dummy"
-        os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--mute-audio --log-level=3 --disable-speech-api"
 
     app = QApplication(sys.argv)
     window = SnowyBotWindow()
 
     sys.exit(app.exec_())
-
 
 if __name__ == "__main__":
     main()
