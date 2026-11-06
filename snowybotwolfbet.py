@@ -279,7 +279,7 @@ async def run_betting_loop():
         
         computedNextBet = await calculate_next_progression_step(previousWagerAmount)
         
-        seriously_retarded_hacker_stopper = ((walletStash==last_observed_balance) or (walletStash==(last_observed_balance+previousWagerAmount)) or (walletStash==(last_observed_balance-previousWagerAmount))
+        seriously_retarded_hacker_stopper = ((walletStash==last_observed_balance) or (walletStash==(last_observed_balance+previousWagerAmount)) or (walletStash==(last_observed_balance-previousWagerAmount)))
         if not seriously_retarded_hacker_stopper:
             print("seriously_retarded_hacker_stopper activated fuck off hacker i'm exiting you big retard")
             sys.exit(0)
