@@ -153,32 +153,43 @@ def get_user_balance():
     return None
 
 async def calculate_next_progression_step(incoming_wager):
-    global walletStash, currentWagerAmount, wobbleFactor, checkpointJuice, safetyCheckpoint, tinyPeanutSize, backupPeanut, safetyCheckpointtwo
+    global walletStash, currentWagerAmount, wobbleFactor, checkpointJuice, safetyCheckpoint, tinyPeanutSize, backupPeanut, safetyCheckpointtwo, base_wager
 
     currentWagerAmount = round(float(incoming_wager), 8)
     walletStash = get_user_balance()
     checkpointJuice = float(checkpointJuice)
     safetyCheckpoint = float(safetyCheckpoint)
     safetyCheckpointtwo = float(safetyCheckpointtwo)
-    chunk_size = (tinyPeanutSize * 80)
-    chunk_sizetwo = (tinyPeanutSize * 10)
-    chunk_sevens = (tinyPeanutSize * 6.9)
-    chunk_eights = (tinyPeanutSize * 7.9)
+    base_wager = currentWagerAmount
+    backupPeanut = tinyPeanutSize
 
-    if (walletStash >= (safetyCheckpointtwo + chunk_sizetwo)):
-        currentWagerAmount = float(tinyPeanutSize)
-        chunk_sizetwo = (tinyPeanutSize * 10)
-        checkpointJuice = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
-        safetyCheckpointtwo = float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
-
-    if ((walletStash > checkpointJuice) and (walletStash > (((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + chunk_sevens)) and (walletStash < (((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + chunk_eights))):
-        currentWagerAmount = round(float(currentWagerAmount + currentWagerAmount), 8)
-        checkpointJuice = float(walletStash)
-
-    if ((walletStash < checkpointJuice) and (walletStash > (((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + chunk_sevens)) and (walletStash < (((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) + chunk_eights))):
-        currentWagerAmount = round(float(currentWagerAmount + currentWagerAmount), 8)
-        chunk_sizetwo = 0
-        checkpointJuice = float(walletStash)
+    if walletStash >= round(safetyCheckpoint + ((tinyPeanutSize * 10) * wobbleFactor), 8):
+        currentWagerAmount = round(float(tinyPeanutSize), 8)
+        wobbleFactor = 1.0
+        checkpointJuice = round(float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)), 8)
+        safetyCheckpoint = round(float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)), 8)
+        return currentWagerAmount
+    
+    if base_wager > backupPeanut:
+        if walletStash > round(checkpointJuice + (base_wager * 5.0), 8):
+            currentWagerAmount = round(float(base_wager * 2.0), 8)
+            checkpointJuice = round(float(walletStash), 8)
+        elif walletStash < round(checkpointJuice - (base_wager * 5.0), 8):
+            currentWagerAmount = round(float(base_wager * 2.0), 8)
+            wobbleFactor = 0.0
+            checkpointJuice = round(float(walletStash), 8)
+        else:
+            currentWagerAmount = base_wager
+            
+    if base_wager <= backupPeanut:
+        if walletStash > round(checkpointJuice + round(base_wager * 7.0, 8), 8):
+            currentWagerAmount = round(float(base_wager * 2.0), 8)
+            checkpointJuice = round(float(walletStash), 8)
+        elif walletStash < round(checkpointJuice - round(base_wager * 3.0, 8), 8):
+            currentWagerAmount = round(float(base_wager * 2.0), 8)
+            checkpointJuice = round(float(walletStash), 8)
+        else:
+            currentWagerAmount = base_wager
 
     return round(float(currentWagerAmount), 8)
 
@@ -234,9 +245,9 @@ def initialize_bot_state():
     )
     wobbleFactor = float(savedState.get("wobbleFactor", 1.0)) if savedState else 1.0
     safetyCheckpoint = (
-        float(savedState.get("safetyCheckpoint", float(((math.floor(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) - (tinyPeanutSize * 10))))
+        float(savedState.get("safetyCheckpoint", float(((math.floor(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)))))
         if savedState
-        else float(((math.floor(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) - (tinyPeanutSize * 10))
+        else float(((math.floor(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)))
     )
     global safetyCheckpointtwo
     safetyCheckpointtwo = (
