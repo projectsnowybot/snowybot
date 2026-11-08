@@ -133,12 +133,12 @@ def get_balance():
 def calculate_next_progression_step(incoming_wager):
     global walletStash, currentWagerAmount, wobbleFactor, checkpointJuice, safetyCheckpoint, tinyPeanutSize, backupPeanut, safetyCheckpointtwo, startingPocketChange
 
-    base_wager = round(float(incoming_wager), 8)
+    currentWagerAmount = round(float(incoming_wager), 8)
     walletStash = get_balance()
     checkpointJuice = float(checkpointJuice)
     safetyCheckpoint = float(safetyCheckpoint)
     safetyCheckpointtwo = float(safetyCheckpointtwo)
-    
+    base_wager = currentWagerAmount
     backupPeanut = tinyPeanutSize
 
     if walletStash >= round(safetyCheckpoint + ((tinyPeanutSize * 10) * wobbleFactor), 8):
