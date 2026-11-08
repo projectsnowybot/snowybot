@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-import asyncio f
+asyncio_import_ok = True
+import asyncio
 import json
 import math
 import os
@@ -27,7 +28,7 @@ safetyCheckpoint = 0.0
 safetyCheckpointtwo = 0.0
 
 last_observed_balance = 0.0
-last_activity_timestamp = time.time()
+last_balance_change_time = time.time()
 watchdog_threshold = 10.0
 
 api_token = ""
@@ -95,14 +96,13 @@ def save_master_state(balance):
         print(f"[Error] Failed to save master state file: {e}", flush=True)
 
 async def api_request_async(session, endpoint, method="GET", payload=None, max_retries=3):
-    global last_activity_timestamp
     headers = {
         "Authorization": f"Bearer {api_token}",
         "Content-Type": "application/json",
         "Accept": "application/json"
     }
     url = f"{API_BASE_URL}/{endpoint}"
-    backoff_factor = 0.1
+    backoff_factor = 0.05
 
     for attempt in range(max_retries):
         try:
@@ -110,7 +110,6 @@ async def api_request_async(session, endpoint, method="GET", payload=None, max_r
                 async with session.get(url, headers=headers, timeout=10) as response:
                     text = await response.text()
                     if response.status == 200:
-                        last_activity_timestamp = time.time()
                         return json.loads(text)
                     elif response.status == 429:
                         await asyncio.sleep(backoff_factor * (2 ** attempt))
@@ -120,7 +119,6 @@ async def api_request_async(session, endpoint, method="GET", payload=None, max_r
                 async with session.post(url, headers=headers, json=payload, timeout=10) as response:
                     text = await response.text()
                     if response.status == 200:
-                        last_activity_timestamp = time.time()
                         return json.loads(text)
                     elif response.status == 429:
                         await asyncio.sleep(backoff_factor * (2 ** attempt))
@@ -165,10 +163,6 @@ async def calculate_next_progression_step(session, incoming_wager):
     global walletStash, currentWagerAmount, wobbleFactor, checkpointJuice, safetyCheckpoint, tinyPeanutSize, backupPeanut, safetyCheckpointtwo, base_wager
 
     currentWagerAmount = round(float(incoming_wager), 8)
-    walletStash = await get_user_balance_async(session)
-    if walletStash is None:
-        walletStash = last_observed_balance
-
     checkpointJuice = float(checkpointJuice)
     safetyCheckpoint = float(safetyCheckpoint)
     safetyCheckpointtwo = float(safetyCheckpointtwo)
@@ -183,10 +177,10 @@ async def calculate_next_progression_step(session, incoming_wager):
         return currentWagerAmount
     
     if base_wager > backupPeanut:
-        if walletStash > round(checkpointJuice + (base_wager * 4.9), 8):
+        if walletStash > round(checkpointJuice + (base_wager * 5.0), 8):
             currentWagerAmount = round(float(base_wager * 2.0), 8)
             checkpointJuice = round(float(walletStash), 8)
-        elif walletStash < round(checkpointJuice - (base_wager * 4.9), 8):
+        elif walletStash < round(checkpointJuice - (base_wager * 5.0), 8):
             currentWagerAmount = round(float(base_wager * 2.0), 8)
             wobbleFactor = 0.0
             checkpointJuice = round(float(walletStash), 8)
@@ -194,10 +188,10 @@ async def calculate_next_progression_step(session, incoming_wager):
             currentWagerAmount = base_wager
             
     if base_wager <= backupPeanut:
-        if walletStash > round(checkpointJuice + round(base_wager * 6.9, 8), 8):
+        if walletStash > round(checkpointJuice + round(base_wager * 7.0, 8), 8):
             currentWagerAmount = round(float(base_wager * 2.0), 8)
             checkpointJuice = round(float(walletStash), 8)
-        elif walletStash < round(checkpointJuice - round(base_wager * 2.9, 8), 8):
+        elif walletStash < round(checkpointJuice - round(base_wager * 3.0, 8), 8):
             currentWagerAmount = round(float(base_wager * 2.0), 8)
             checkpointJuice = round(float(walletStash), 8)
         else:
@@ -211,7 +205,7 @@ def log_bet_info(bet_amount, current_balance, total_profit):
 async def initialize_bot_state_async(session):
     global trueOriginalBalance, startingPocketChange, tinyPeanutSize, backupPeanut, tenPeanuts
     global walletStash, previousWalletState, currentWagerAmount, previousWagerAmount
-    global checkpointJuice, wobbleFactor, safetyCheckpoint, last_observed_balance, last_activity_timestamp
+    global checkpointJuice, wobbleFactor, safetyCheckpoint, last_observed_balance, last_balance_change_time
 
     current_bal = await get_user_balance_async(session)
     if current_bal is None:
@@ -247,35 +241,74 @@ async def initialize_bot_state_async(session):
     safetyCheckpointtwo = float(savedState.get("safetyCheckpointtwo", float((math.floor(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)))) if savedState else float((math.floor(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
 
     last_observed_balance = current_bal
-    last_activity_timestamp = time.time()
+    last_balance_change_time = time.time()
 
     total_profit_init = walletStash - trueOriginalBalance
     print(f"[System] Connected to WolfBet! Balance: {walletStash:.8f} {currency_symbol.upper()} | Master Original: {trueOriginalBalance:.8f} | Total Profit: {total_profit_init:+.8f}", flush=True)
 
 async def watchdog_loop(session):
-    global last_activity_timestamp, walletStash
+    global last_balance_change_time, walletStash, last_observed_balance
     while True:
-        await asyncio.sleep(2.0)
-        if (time.time() - last_activity_timestamp) > watchdog_threshold:
-            print(f"[Watchdog] Inactivity or connection timeout detected. Reloading state files and verifying balance...", flush=True)
+        await asyncio.sleep(1.0)
+        if (time.time() - last_balance_change_time) > watchdog_threshold:
+            print(f"[Watchdog] Balance has not changed for {watchdog_threshold}s. Reloading state files and verifying balance...", flush=True)
             load_state()
             bal_check = await get_user_balance_async(session)
             if bal_check is not None:
-                walletStash = bal_check
-                last_activity_timestamp = time.time()
-                print(f"[Watchdog] Connection restored. Verified balance: {walletStash:.8f}", flush=True)
+                if bal_check != walletStash:
+                    walletStash = bal_check
+                    last_observed_balance = walletStash
+                    last_balance_change_time = time.time()
+                    print(f"[Watchdog] Balance updated during check: {walletStash:.8f}", flush=True)
+                else:
+                    print(f"[Watchdog] Balance verified unchanged at {walletStash:.8f}. Resetting watchdog timer.", flush=True)
+                    last_balance_change_time = time.time()
 
 async def run_betting_loop():
-    connector = aiohttp.TCPConnector(limit=20, limit_per_host=20)
+    connector = aiohttp.TCPConnector(limit=50, limit_per_host=50)
     async with aiohttp.ClientSession(connector=connector) as session:
         await initialize_bot_state_async(session)
-        
-        # Start independent watchdog task in the background
         asyncio.create_task(watchdog_loop(session))
         
-        global walletStash, last_observed_balance, previousWagerAmount, trueOriginalBalance
+        global walletStash, last_observed_balance, previousWagerAmount, trueOriginalBalance, last_balance_change_time
         
-        print("[System] Entering high-speed balance-change event-driven betting loop...", flush=True)
+        print("[System] Entering 1ms micro-sleep balance check loop...", flush=True)
+
+        # Place initial first bet
+        computedNextBet = await calculate_next_progression_step(session, previousWagerAmount)
+        total_profit = walletStash - trueOriginalBalance
+        log_bet_info(computedNextBet, walletStash, total_profit)
+
+        bet_payload = {
+            "currency": currency_symbol.lower(),
+            "game": "dice",
+            "amount": f"{computedNextBet:.8f}",
+            "rule": "under",
+            "multiplier": "2",
+            "bet_value": "49.5"
+        }
+        previousWagerAmount = computedNextBet
+        bet_response = await api_request_async(session, "bet/place/", method="POST", payload=bet_payload)
+        if bet_response and "bet" in bet_response:
+            user_bal_obj = bet_response.get("user_balance")
+            if isinstance(user_bal_obj, dict):
+                for k in ["amount", "balance", "value"]:
+                    if k in user_bal_obj:
+                        try:
+                            walletStash = float(user_bal_obj[k])
+                            break
+                        except (ValueError, TypeError):
+                            pass
+            elif isinstance(user_bal_obj, (int, float)):
+                walletStash = float(user_bal_obj)
+            elif "balance" in bet_response:
+                try:
+                    walletStash = float(bet_response["balance"])
+                except (ValueError, TypeError):
+                    pass
+            last_observed_balance = walletStash
+            last_balance_change_time = time.time()
+            save_state()
 
         while True:
             if walletStash >= 14.4:
@@ -289,68 +322,58 @@ async def run_betting_loop():
                             pass
                 sys.exit(0)
 
-            computedNextBet = await calculate_next_progression_step(session, previousWagerAmount)
-
-            total_profit = walletStash - trueOriginalBalance
-            log_bet_info(computedNextBet, walletStash, total_profit)
-
-            bet_payload = {
-                "currency": currency_symbol.lower(),
-                "game": "dice",
-                "amount": f"{computedNextBet:.8f}",
-                "rule": "under",
-                "multiplier": "2",
-                "bet_value": "49.5"
-            }
-
-            previous_balance = walletStash
-            bet_response = await api_request_async(session, "bet/place/", method="POST", payload=bet_payload)
+            current_balance = last_observed_balance
+            bal_check = await get_user_balance_async(session)
             
-            if bet_response and "bet" in bet_response:
-                previousWagerAmount = computedNextBet
-                
-                updated = False
-                new_balance = walletStash
-                user_bal_obj = bet_response.get("user_balance")
-                if isinstance(user_bal_obj, dict):
-                    for k in ["amount", "balance", "value"]:
-                        if k in user_bal_obj:
-                            try:
-                                new_balance = float(user_bal_obj[k])
-                                updated = True
-                                break
-                            except (ValueError, TypeError):
-                                pass
-                elif isinstance(user_bal_obj, (int, float)):
-                    new_balance = float(user_bal_obj)
-                    updated = True
-
-                if not updated and "balance" in bet_response:
-                    try:
-                        new_balance = float(bet_response["balance"])
-                        updated = True
-                    except (ValueError, TypeError):
-                        pass
-
-                # Reset immediately upon detecting balance change
-                if not updated or new_balance == previous_balance:
-                    for _ in range(10):
-                        bal_check = await get_user_balance_async(session)
-                        if bal_check is not None and bal_check != previous_balance:
-                            new_balance = bal_check
-                            break
-                        await asyncio.sleep(0.005)
-
-                walletStash = new_balance
+            if bal_check is not None and bal_check != current_balance:
+                # Balance changed! Update state and execute logic + next bet immediately
+                walletStash = bal_check
                 last_observed_balance = walletStash
-                save_state()
+                last_balance_change_time = time.time()
+
+                computedNextBet = await calculate_next_progression_step(session, previousWagerAmount)
+                total_profit = walletStash - trueOriginalBalance
+                log_bet_info(computedNextBet, walletStash, total_profit)
+
+                bet_payload = {
+                    "currency": currency_symbol.lower(),
+                    "game": "dice",
+                    "amount": f"{computedNextBet:.8f}",
+                    "rule": "under",
+                    "multiplier": "2",
+                    "bet_value": "49.5"
+                }
+
+                previousWagerAmount = computedNextBet
+                bet_response = await api_request_async(session, "bet/place/", method="POST", payload=bet_payload)
+                
+                if bet_response and "bet" in bet_response:
+                    user_bal_obj = bet_response.get("user_balance")
+                    if isinstance(user_bal_obj, dict):
+                        for k in ["amount", "balance", "value"]:
+                            if k in user_bal_obj:
+                                try:
+                                    walletStash = float(user_bal_obj[k])
+                                    break
+                                except (ValueError, TypeError):
+                                    pass
+                    elif isinstance(user_bal_obj, (int, float)):
+                        walletStash = float(user_bal_obj)
+                    elif "balance" in bet_response:
+                        try:
+                            walletStash = float(bet_response["balance"])
+                        except (ValueError, TypeError):
+                            pass
+                    last_observed_balance = walletStash
+                    save_state()
             else:
-                await asyncio.sleep(0.01)
+                # 1 millisecond micro-sleep when balance has not changed yet
+                await asyncio.sleep(0.001)
 
 def main():
     global api_token, currency_symbol
 
-    print("=== SnowyBot WolfBet API Edition (Independent Watchdog & Instant Balance-Change Trigger) ===")
+    print("=== SnowyBot WolfBet API Edition (1ms Balance-Check Loop) ===")
     api_token = pwinput.pwinput(prompt="WolfBet API Token / Bearer: ", mask="*")
     
     currency_input = input("Currency symbol [default: ltc]: ").strip().lower()
