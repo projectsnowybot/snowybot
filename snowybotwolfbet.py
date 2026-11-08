@@ -183,10 +183,10 @@ async def calculate_next_progression_step(session, incoming_wager):
         return currentWagerAmount
     
     if base_wager > backupPeanut:
-        if walletStash > round(checkpointJuice + (base_wager * 5.0), 8):
+        if walletStash > round(checkpointJuice + (base_wager * 4.9), 8):
             currentWagerAmount = round(float(base_wager * 2.0), 8)
             checkpointJuice = round(float(walletStash), 8)
-        elif walletStash < round(checkpointJuice - (base_wager * 5.0), 8):
+        elif walletStash < round(checkpointJuice - (base_wager * 4.9), 8):
             currentWagerAmount = round(float(base_wager * 2.0), 8)
             wobbleFactor = 0.0
             checkpointJuice = round(float(walletStash), 8)
@@ -194,10 +194,10 @@ async def calculate_next_progression_step(session, incoming_wager):
             currentWagerAmount = base_wager
             
     if base_wager <= backupPeanut:
-        if walletStash > round(checkpointJuice + round(base_wager * 7.0, 8), 8):
+        if walletStash > round(checkpointJuice + round(base_wager * 6.9, 8), 8):
             currentWagerAmount = round(float(base_wager * 2.0), 8)
             checkpointJuice = round(float(walletStash), 8)
-        elif walletStash < round(checkpointJuice - round(base_wager * 3.0, 8), 8):
+        elif walletStash < round(checkpointJuice - round(base_wager * 2.9, 8), 8):
             currentWagerAmount = round(float(base_wager * 2.0), 8)
             checkpointJuice = round(float(walletStash), 8)
         else:
