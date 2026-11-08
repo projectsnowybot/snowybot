@@ -1,4 +1,4 @@
-#!/usr/init/env python3
+#!/usr/bin/env python3
 import asyncio
 import json
 import math
@@ -267,8 +267,7 @@ async def watchdog_loop(session):
 
 async def run_betting_loop():
     connector = aiohttp.TCPConnector(limit=20, limit_per_host=20)
-    async native_session = aiohttp.ClientSession(connector=connector)
-    async with native_session as session:
+    async with aiohttp.ClientSession(connector=connector) as session:
         await initialize_bot_state_async(session)
         
         # Start independent watchdog task in the background
