@@ -272,7 +272,7 @@ async def run_betting_loop():
         
         global walletStash, last_observed_balance, previousWagerAmount, trueOriginalBalance, last_balance_change_time  
         print("[System] Entering 1ms micro-sleep balance check loop...", flush=True)
-        walletStash = get_user_balance_async(session)
+        walletStash = await get_user_balance_async(session)
         if ((walletStash != last_observed_balance) and (walletStash != (last_observed_balance + previousWagerAmount)) and (walletStash != (last_observed_balance - previousWagerAmount))):
             print("seriously_retarded_hacker_stopper activated, exiting...")
             sys.exit()
