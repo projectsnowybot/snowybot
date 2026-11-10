@@ -26,6 +26,7 @@ checkpointJuice = 0.0
 wobbleFactor = 1.0
 safetyCheckpoint = 0.0
 safetyCheckpointtwo = 0.0
+last_observed = 0.0
 
 last_observed_balance = 0.0
 last_balance_change_time = time.time()
@@ -52,6 +53,7 @@ def load_state():
                 wobbleFactor = float(data.get("wobbleFactor", wobbleFactor))
                 safetyCheckpoint = float(data.get("safetyCheckpoint", safetyCheckpoint))
                 safetyCheckpointtwo = float(data.get("safetyCheckpointtwo", safetyCheckpointtwo))
+                last_observed = float(data.get("last_observed", last_observed))
                 print(f"[Watchdog] State file reloaded successfully from disk.", flush=True)
         except Exception as e:
             print(f"[Error] Failed to load state file: {e}", flush=True)
@@ -60,6 +62,7 @@ def save_state():
     bot_state = {
         "walletStash": walletStash,
         "startingPocketChange": startingPocketChange,
+        "last_observed": last_observed,
         "tinyPeanutSize": tinyPeanutSize,
         "backupPeanut": backupPeanut,
         "tenPeanuts": tenPeanuts,
@@ -247,6 +250,7 @@ async def initialize_bot_state_async(session):
     safetyCheckpointtwo = float(savedState.get("safetyCheckpointtwo", float((math.floor(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)))) if savedState else float((math.floor(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
 
     last_observed_balance = current_bal
+    last_observed = current_bal
     last_balance_change_time = time.time()
 
     total_profit_init = walletStash - trueOriginalBalance
