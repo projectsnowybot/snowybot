@@ -272,7 +272,10 @@ async def run_betting_loop():
         
         global walletStash, last_observed_balance, previousWagerAmount, trueOriginalBalance, last_balance_change_time  
         print("[System] Entering 1ms micro-sleep balance check loop...", flush=True)
-
+        if ((walletStash != last_observed_balance) or (walletStash != (last_observed_balance + previousWagerAmount)) or (walletStash != (last_observed_balance - previousWagerAmount))):
+               print("seriously_retarded_hacker_stopper activated, exiting...")
+               sys.exit()
+               return
         # Place initial first bet
         computedNextBet = await calculate_next_progression_step(session, previousWagerAmount)
         total_profit = walletStash - trueOriginalBalance
@@ -305,15 +308,13 @@ async def run_betting_loop():
                     walletStash = float(bet_response["balance"])
                 except (ValueError, TypeError):
                     pass
-
-            if ((walletStash != last_observed_balance) or (walletStash != round((last_observed_balance + previousWagerAmount), 8) or walletStash != round((last_observed_balance - previousWagerAmount), 8))):
+            if ((walletStash != last_observed_balance) and (walletStash != (last_observed_balance + previousWagerAmount)) and (walletStash != (last_observed_balance - previousWagerAmount))):
                print("seriously_retarded_hacker_stopper activated, exiting...")
                sys.exit()
-               return
-            else:
-               last_observed_balance = walletStash
-               last_balance_change_time = time.time()
-               save_state()
+               return  
+            last_observed_balance = walletStash
+            last_balance_change_time = time.time()
+            save_state()
 
         while True:
             if walletStash >= 14.4:
