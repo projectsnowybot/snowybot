@@ -250,7 +250,7 @@ async def initialize_bot_state_async(session):
     safetyCheckpointtwo = float(savedState.get("safetyCheckpointtwo", float((math.floor(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)))) if savedState else float((math.floor(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
 
     last_observed_balance = current_bal
-    last_observed = current_bal
+    last_observed = float(savedState.get("last_observed", current_bal)) if savedState else current_bal
     last_balance_change_time = time.time()
 
     total_profit_init = walletStash - trueOriginalBalance
