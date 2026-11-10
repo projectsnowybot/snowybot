@@ -160,7 +160,7 @@ async def get_user_balance_async(session):
     return None
 
 async def calculate_next_progression_step(session, incoming_wager):
-    global walletStash, currentWagerAmount, wobbleFactor, checkpointJuice, safetyCheckpoint, tinyPeanutSize, backupPeanut, safetyCheckpointtwo, base_wager
+    global walletStash, currentWagerAmount, wobbleFactor, checkpointJuice, safetyCheckpoint, tinyPeanutSize, backupPeanut, safetyCheckpointtwo, base_wager, last_observed
 
     currentWagerAmount = round(float(incoming_wager), 8)
     checkpointJuice = float(checkpointJuice)
@@ -168,7 +168,13 @@ async def calculate_next_progression_step(session, incoming_wager):
     safetyCheckpointtwo = float(safetyCheckpointtwo)
     base_wager = currentWagerAmount
     backupPeanut = tinyPeanutSize
-
+    if ((walletStash != last_observed) and (walletStash != (last_observed + (round(float(incoming_wager), 8)))) and (walletStash != (last_observed - (round(float(incoming_wager), 8))))):
+        print("seriously_retarded_hacker_stopper activated, exiting...")
+        sys.exit()
+        return
+    else:
+        last_observed = round(float(walletStash), 8)
+        
     if walletStash >= round(safetyCheckpoint + ((tinyPeanutSize * 10) * wobbleFactor), 8):
         currentWagerAmount = round(float(tinyPeanutSize), 8)
         wobbleFactor = 1.0
@@ -272,11 +278,7 @@ async def run_betting_loop():
         
         global walletStash, last_observed_balance, previousWagerAmount, trueOriginalBalance, last_balance_change_time  
         print("[System] Entering 1ms micro-sleep balance check loop...", flush=True)
-        walletStash = await get_user_balance_async(session)
-        if ((walletStash != last_observed_balance) and (walletStash != (last_observed_balance + previousWagerAmount)) and (walletStash != (last_observed_balance - previousWagerAmount))):
-            print("seriously_retarded_hacker_stopper activated, exiting...")
-            sys.exit()
-            return  
+
         # Place initial first bet
         computedNextBet = await calculate_next_progression_step(session, previousWagerAmount)
         total_profit = walletStash - trueOriginalBalance
