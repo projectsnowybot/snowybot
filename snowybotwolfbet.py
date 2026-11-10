@@ -289,29 +289,15 @@ async def run_betting_loop():
         previousWagerAmount = computedNextBet
         bet_response = await api_request_async(session, "bet/place/", method="POST", payload=bet_payload)
         if bet_response and "bet" in bet_response:
-            user_bal_obj = bet_response.get("user_balance")
-            if isinstance(user_bal_obj, dict):
-                for k in ["amount", "balance", "value"]:
-                    if k in user_bal_obj:
-                        try:
-                            walletStash = float(user_bal_obj[k])
-                            break
-                        except (ValueError, TypeError):
-                            pass
-            elif isinstance(user_bal_obj, (int, float)):
-                walletStash = float(user_bal_obj)
-            elif "balance" in bet_response:
-                try:
-                    walletStash = float(bet_response["balance"])
-                except (ValueError, TypeError):
-                    pass
-            if ((walletStash != last_observed_balance) and (walletStash != (last_observed_balance + previousWagerAmount)) and (walletStash != (last_observed_balance - previousWagerAmount))):
-               print("seriously_retarded_hacker_stopper activated, exiting...")
-               sys.exit()
-               return  
-            last_observed_balance = walletStash
-            last_balance_change_time = time.time()
-            save_state()
+           if "balance" in bet_response:
+               walletStash = float(bet_response["balance"])
+               if ((walletStash != last_observed_balance) and (walletStash != (last_observed_balance + previousWagerAmount)) and (walletStash != (last_observed_balance - previousWagerAmount))):
+                    print("seriously_retarded_hacker_stopper activated, exiting...")
+                    sys.exit()
+                    return  
+               last_observed_balance = walletStash
+               last_balance_change_time = time.time()
+               save_state()
 
         while True:
             if walletStash >= 14.4:
