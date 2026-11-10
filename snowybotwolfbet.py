@@ -271,12 +271,11 @@ async def run_betting_loop():
         asyncio.create_task(watchdog_loop(session))
         
         global walletStash, last_observed_balance, previousWagerAmount, trueOriginalBalance, last_balance_change_time
-        balance_changed = (walletStash == round((last_observed_balance + previousWagerAmount), 8) or walletStash == round((last_observed_balance - previousWagerAmount), 8))
-        
-        seriously_retarded_hacker_stopper_threshold = ((walletStash == last_observed_balance) or balance_changed)
+        seriously_retarded_hacker_stopper_threshold = ((walletStash == last_observed_balance) or (walletStash == round((last_observed_balance + previousWagerAmount), 8) or walletStash == round((last_observed_balance - previousWagerAmount), 8)))
         if not seriously_retarded_hacker_stopper_threshold:
             print("seriously_retarded_hacker_stopper activated, exiting...")
-            sys.exit(0)
+            return
+            sys.exit()
             
         print("[System] Entering 1ms micro-sleep balance check loop...", flush=True)
 
