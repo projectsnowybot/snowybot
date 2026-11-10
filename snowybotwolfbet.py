@@ -171,7 +171,7 @@ async def calculate_next_progression_step(session, incoming_wager):
     safetyCheckpointtwo = float(safetyCheckpointtwo)
     base_wager = currentWagerAmount
     backupPeanut = tinyPeanutSize
-    if ((walletStash != last_observed) and (walletStash != (last_observed + (round(float(incoming_wager), 8)))) and (walletStash != (last_observed - (round(float(incoming_wager), 8))))):
+    if ((walletStash != last_observed) and (walletStash != (last_observed + currentWagerAmount)) and (walletStash != (last_observed - currentWagerAmount))):
         print("seriously_retarded_hacker_stopper activated, exiting...")
         sys.exit()
         return
