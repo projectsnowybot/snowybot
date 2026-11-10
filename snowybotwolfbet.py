@@ -270,12 +270,7 @@ async def run_betting_loop():
         await initialize_bot_state_async(session)
         asyncio.create_task(watchdog_loop(session))
         
-        global walletStash, last_observed_balance, previousWagerAmount, trueOriginalBalance, last_balance_change_time
-        if ((walletStash != last_observed_balance) or (walletStash != round((last_observed_balance + previousWagerAmount), 8) or walletStash != round((last_observed_balance - previousWagerAmount), 8))):
-            print("seriously_retarded_hacker_stopper activated, exiting...")
-            return
-            sys.exit()
-            
+        global walletStash, last_observed_balance, previousWagerAmount, trueOriginalBalance, last_balance_change_time  
         print("[System] Entering 1ms micro-sleep balance check loop...", flush=True)
 
         # Place initial first bet
@@ -313,8 +308,8 @@ async def run_betting_loop():
 
             if ((walletStash != last_observed_balance) or (walletStash != round((last_observed_balance + previousWagerAmount), 8) or walletStash != round((last_observed_balance - previousWagerAmount), 8))):
                print("seriously_retarded_hacker_stopper activated, exiting...")
-               return
                sys.exit()
+               return
             else:
                last_observed_balance = walletStash
                last_balance_change_time = time.time()
