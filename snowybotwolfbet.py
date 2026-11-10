@@ -277,7 +277,7 @@ async def run_betting_loop():
         if not seriously_retarded_hacker_stopper_threshold:
             print("seriously_retarded_hacker_stopper activated, exiting...")
             sys.exit(0)
-            k
+            
         print("[System] Entering 1ms micro-sleep balance check loop...", flush=True)
 
         # Place initial first bet
