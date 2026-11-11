@@ -175,9 +175,9 @@ async def calculate_next_progression_step(session, incoming_wager):
     soulp = walletStash - last_observed
     
     # Check if the balance change matches expected outcomes (win/loss of current wager or 0 change)
-    if (math.isclose(soulp - currentWagerAmount, 0.0, abs_tol=1e-7) or 
-        math.isclose(soulp + currentWagerAmount, 0.0, abs_tol=1e-7) or 
-        math.isclose(soulp, 0.0, abs_tol=1e-7)):
+    if (math.isclose(soulp - currentWagerAmount, 0.0, abs_tol=1e-8) or 
+        math.isclose(soulp + currentWagerAmount, 0.0, abs_tol=1e-8) or 
+        math.isclose(soulp, 0.0, abs_tol=1e-8)):
         last_observed = round(float(walletStash), 8)
     else:
         print("[Security] External balance change detected! Halting bot to protect state...", flush=True)
