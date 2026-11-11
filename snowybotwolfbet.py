@@ -249,7 +249,7 @@ async def initialize_bot_state_async(session):
     startingPocketChange = current_bal
     walletStash = current_bal
 
-    calculated_tiny = float(startingPocketChange / 1440000.0)
+    calculated_tiny = float(startingPocketChange / 144000.0)
 
     tinyPeanutSize = float(savedState.get("tinyPeanutSize", calculated_tiny)) if savedState else calculated_tiny
     backupPeanut = float(savedState.get("backupPeanut", tinyPeanutSize)) if savedState else tinyPeanutSize
