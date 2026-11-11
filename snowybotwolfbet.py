@@ -27,6 +27,7 @@ wobbleFactor = 1.0
 safetyCheckpoint = 0.0
 safetyCheckpointtwo = 0.0
 last_observed = 0.0
+beat = 0
 
 last_observed_balance = 0.0
 last_balance_change_time = time.time()
@@ -164,8 +165,6 @@ async def get_user_balance_async(session):
 
 async def calculate_next_progression_step(session, incoming_wager):
     global walletStash, currentWagerAmount, wobbleFactor, checkpointJuice, safetyCheckpoint, tinyPeanutSize, backupPeanut, safetyCheckpointtwo, base_wager, last_observed, beat
-    if beat is None:
-        beat = 0
     currentWagerAmount = round(float(incoming_wager), 8)
     checkpointJuice = float(checkpointJuice)
     safetyCheckpoint = float(safetyCheckpoint)
