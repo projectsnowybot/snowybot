@@ -172,7 +172,7 @@ async def calculate_next_progression_step(session, incoming_wager):
     safetyCheckpointtwo = float(safetyCheckpointtwo)
     base_wager = currentWagerAmount
     backupPeanut = tinyPeanutSize
-    if ((walletStash != last_observed) and (walletStash != round((last_observed + currentWagerAmount), 8)) and (walletStash != round((last_observed - currentWagerAmount), 8)) and beat>=2):
+    if ((walletStash != last_observed) and (walletStash != (round((last_observed + currentWagerAmount), 8))) and (walletStash != (round((last_observed - currentWagerAmount), 8))) and beat>=2):
         print("seriously_retarded_hacker_stopper activated, exiting...")
         sys.exit()
         return
@@ -204,7 +204,7 @@ async def calculate_next_progression_step(session, incoming_wager):
             checkpointJuice = round(float(walletStash), 8)
         else:
             currentWagerAmount = base_wager
-    beat = beat+1
+    beat = int(float(beat)+1)
     return round(float(currentWagerAmount), 8)
 
 def log_bet_info(bet_amount, current_balance, total_profit):
