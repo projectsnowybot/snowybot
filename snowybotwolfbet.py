@@ -162,7 +162,7 @@ async def get_user_balance_async(session):
                     pass
                 
     return None
-
+    
 async def calculate_next_progression_step(session, incoming_wager):
     global walletStash, currentWagerAmount, wobbleFactor, checkpointJuice, safetyCheckpoint, tinyPeanutSize, backupPeanut, safetyCheckpointtwo, base_wager, last_observed, beat
     
@@ -172,22 +172,30 @@ async def calculate_next_progression_step(session, incoming_wager):
     safetyCheckpointtwo = float(safetyCheckpointtwo)
     base_wager = currentWagerAmount
     backupPeanut = tinyPeanutSize
+    if last_observed is None:
+        last_observed = float(walletStash)
+        
     soulp = walletStash - last_observed
     
-    # Check if the balance change matches expected outcomes (win/loss of current wager or 0 change)
+    # Check if balance delta matches exact wager win (+), loss (-), or no change (0)
+    # Using 1e-8 precision to accommodate 8-decimal minimum wagers (0.00000001)
     if (math.isclose(soulp - currentWagerAmount, 0.0, abs_tol=1e-8) or 
         math.isclose(soulp + currentWagerAmount, 0.0, abs_tol=1e-8) or 
         math.isclose(soulp, 0.0, abs_tol=1e-8)):
         last_observed = round(float(walletStash), 8)
     else:
-        print("[Security] External balance change detected! Halting bot to protect state...", flush=True)
+        print(f"[Security] External balance change detected! Delta: {soulp:+.8f} | Expected Wager: {currentWagerAmount:.8f}. Halting bot.", flush=True)
         save_state()
         sys.exit(1)
+        
     if walletStash >= round(safetyCheckpoint + ((tinyPeanutSize * 10) * wobbleFactor), 8):
         currentWagerAmount = round(float(tinyPeanutSize), 8)
         wobbleFactor = 1.0
         checkpointJuice = round(float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)), 8)
         safetyCheckpoint = round(float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)), 8)
+        
+        # Enforce minimum bet floor
+        currentWagerAmount = max(currentWagerAmount, 0.00000001)
         return currentWagerAmount
     
     if base_wager > backupPeanut:
@@ -210,8 +218,12 @@ async def calculate_next_progression_step(session, incoming_wager):
             checkpointJuice = round(float(walletStash), 8)
         else:
             currentWagerAmount = base_wager
-    beat = int(float(beat)+1)
-    return round(float(currentWagerAmount), 8)
+            
+    beat = int(float(beat) + 1)
+    
+    # Enforce hard minimum bet limit of 0.00000001
+    currentWagerAmount = max(round(float(currentWagerAmount), 8), 0.00000001)
+    return currentWagerAmount
 
 def log_bet_info(bet_amount, current_balance, total_profit):
     print(f"Bet: {bet_amount:.8f} | Balance: {current_balance:.8f} | Total Profit: {total_profit:+.8f}", flush=True)
