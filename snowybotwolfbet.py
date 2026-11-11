@@ -172,15 +172,17 @@ async def calculate_next_progression_step(session, incoming_wager):
     safetyCheckpointtwo = float(safetyCheckpointtwo)
     base_wager = currentWagerAmount
     backupPeanut = tinyPeanutSize
-    if last_observed is None:
-        last_observed = float(walletStash)
     soulp = walletStash - last_observed
-    if (((soulp - currentWagerAmount)==0) or ((soulp + currentWagerAmount)==0) or (soulp==0)):
+    
+    # Check if the balance change matches expected outcomes (win/loss of current wager or 0 change)
+    if (math.isclose(soulp - currentWagerAmount, 0.0, abs_tol=1e-7) or 
+        math.isclose(soulp + currentWagerAmount, 0.0, abs_tol=1e-7) or 
+        math.isclose(soulp, 0.0, abs_tol=1e-7)):
         last_observed = round(float(walletStash), 8)
     else:
-        print("seriously_retarded_hacker_stopper activated, exiting...")
-        sys.exit()
-        return
+        print("[Security] External balance change detected! Halting bot to protect state...", flush=True)
+        save_state()
+        sys.exit(1)
     if walletStash >= round(safetyCheckpoint + ((tinyPeanutSize * 10) * wobbleFactor), 8):
         currentWagerAmount = round(float(tinyPeanutSize), 8)
         wobbleFactor = 1.0
