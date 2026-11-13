@@ -114,7 +114,7 @@ async def api_request_async(session, endpoint, method="GET", payload=None, max_r
     for attempt in range(max_retries):
         try:
             if method == "GET":
-                async with session.get(url, headers=headers, timeout=100) as response:
+                async with session.get(url, headers=headers, timeout=10) as response:
                     text = await response.text()
                     if response.status == 200:
                         return json.loads(text)
@@ -123,7 +123,7 @@ async def api_request_async(session, endpoint, method="GET", payload=None, max_r
                     else:
                         await asyncio.sleep(backoff_factor * (2 ** attempt))
             elif method == "POST":
-                async with session.post(url, headers=headers, json=payload, timeout=100) as response:
+                async with session.post(url, headers=headers, json=payload, timeout=10) as response:
                     text = await response.text()
                     if response.status == 200:
                         return json.loads(text)
@@ -387,13 +387,13 @@ async def run_betting_loop():
                     last_observed_balance = float(walletStash)
                     save_state()
             else:
-                # 100 millisecond micro-sleep when balance has not changed yet
-                await asyncio.sleep(0.1)
+                # 1 millisecond micro-sleep when balance has not changed yet
+                await asyncio.sleep(0.001)
 
 def main():
     global api_token, currency_symbol
 
-    print("=== SnowyBot WolfBet API Edition (100ms Balance-Check Loop) ===")
+    print("=== SnowyBot WolfBet API Edition (1ms Balance-Check Loop) ===")
     api_token = pwinput.pwinput(prompt="WolfBet API Token / Bearer: ", mask="*")
     
     currency_input = input("Currency symbol [default: usdt]: ").strip().lower()
