@@ -34,7 +34,7 @@ last_observed_balance = 0.0
 last_balance_change_time = time.time()
 watchdog_threshold = 10.0
 
-api_token = "your api key here in side the comas"
+api_token = ""
 currency_symbol = "usdt"
 
 def load_state():
@@ -394,6 +394,11 @@ def main():
     global api_token, currency_symbol
 
     print("=== SnowyBot WolfBet API Edition (100ms Balance-Check Loop) ===")
+    api_token = pwinput.pwinput(prompt="WolfBet API Token / Bearer: ", mask="*")
+    
+    currency_input = input("Currency symbol [default: usdt]: ").strip().lower()
+    if currency_input:
+        currency_symbol = currency_input
 
     try:
         asyncio.run(run_betting_loop())
