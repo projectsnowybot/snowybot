@@ -176,9 +176,6 @@ async def calculate_next_progression_step(session, incoming_wager):
     base_wager = currentWagerAmount
     backupPeanut = tinyPeanutSize
     
-    if last_observed is None:
-        last_observed = float(walletStash)
-    
     # Only run the external balance security check if we are past the initial setup beat
     if beat > 0:
         soulp = (walletStash - last_observed)
@@ -186,8 +183,8 @@ async def calculate_next_progression_step(session, incoming_wager):
         if ((math.isclose(soulp - currentWagerAmount, 0.0, abs_tol=1e-8)) or (math.isclose(soulp + currentWagerAmount, 0.0, abs_tol=1e-8))):
             last_observed = float(walletStash)
         else:
-            print(f"[Security] External balance change detected! Delta: {soulp:+.8f} | Expected Wager: {currentWagerAmount:.8f}. Halting.", flush=True)
-            bob = (float(bob) + souly)
+            print(f"[Security] External balance change detected! Delta: {soulp:+.8f} | Expected Wager: {currentWagerAmount:.8f}. fuck off hacker.")
+            bob = (bob + souly)
             last_observed = float(walletStash)
     else:
         # On beat 0 (initial connection), just sync last_observed without tripping
@@ -195,25 +192,24 @@ async def calculate_next_progression_step(session, incoming_wager):
 
     freak = float(walletStash + bob)
     if freak >= round(safetyCheckpoint + ((tinyPeanutSize * 10) * wobbleFactor), 8):
-        currentWagerAmount = round(float(tinyPeanutSize), 8)
+        currentWagerAmount = tinyPeanutSize
         wobbleFactor = 1.0
         checkpointJuice = round(float((math.floor(freak / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)), 8)
         safetyCheckpoint = round(float((math.floor(freak / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)), 8)
-    
-    if ((currentWagerAmount > tinyPeanutSize) and (freak > (checkpointJuice + (currentWagerAmount * 4.9)))):
-        currentWagerAmount = (float(currentWagerAmount) * 2.0)
-        checkpointJuice = float(freak)
+
     if ((currentWagerAmount > tinyPeanutSize) and (freak < (checkpointJuice - (currentWagerAmount * 4.9)))):
-        currentWagerAmount = (float(currentWagerAmount) * 2.0)
         wobbleFactor = 0.0
+        currentWagerAmount = (currentWagerAmount* 2)
         checkpointJuice = float(freak)
 
-    if (((currentWagerAmount <= tinyPeanutSize) and (freak > (checkpointJuice + (currentWagerAmount * 6.9)))) or ((currentWagerAmount <= tinyPeanutSize) and (freak < (checkpointJuice - (currentWagerAmount * 2.9))))):
-        currentWagerAmount = (float(currentWagerAmount) * 2.0)
+    if (((currentWagerAmount <= tinyPeanutSize) and (freak > (checkpointJuice + (currentWagerAmount * 6.9)))) or 
+        ((currentWagerAmount <= tinyPeanutSize) and (freak < (checkpointJuice - (currentWagerAmount * 2.9)))) or 
+        ((currentWagerAmount > tinyPeanutSize) and (freak > (checkpointJuice + (currentWagerAmount * 4.9))))):
+        currentWagerAmount = (currentWagerAmount* 2)
         checkpointJuice = float(freak)
-        
-            
-    beat = int(float(beat) + 1)
+
+
+    beat = (beat + 1)
     currentWagerAmount = round(float(currentWagerAmount), 8)
     return currentWagerAmount
 
@@ -242,7 +238,7 @@ async def initialize_bot_state_async(session):
     startingPocketChange = current_bal
     walletStash = float(current_bal)
 
-    calculated_tiny = float(startingPocketChange / 144000.0)
+    calculated_tiny = float(startingPocketChange / 144000)
 
     tinyPeanutSize = float(savedState.get("tinyPeanutSize", calculated_tiny)) if savedState else calculated_tiny
     backupPeanut = float(savedState.get("backupPeanut", tinyPeanutSize)) if savedState else tinyPeanutSize

@@ -38,6 +38,9 @@ checkpointJuice = 0.0
 wobbleFactor = 1.0
 safetyCheckpoint = 0.0
 safetyCheckpointtwo = 0.0
+bob = 0
+beat = 0
+last_observed = 0.0
 
 last_balance_change_time = time.time()
 last_observed_balance = 0.0
@@ -67,6 +70,8 @@ def save_state():
         "walletStash": round(float(walletStash), 8),
         "startingPocketChange": round(float(startingPocketChange), 8),
         "tinyPeanutSize": round(float(tinyPeanutSize), 8),
+        "last_observed": round(float(last_observed), 8),
+        "bob": bob,
         "backupPeanut": round(float(backupPeanut), 8),
         "tenPeanuts": round(float(tenPeanuts), 8),
         "previousWalletState": round(float(previousWalletState), 8),
@@ -131,45 +136,52 @@ def get_balance():
     return bal_result[0]
 
 def calculate_next_progression_step(incoming_wager):
-    global walletStash, currentWagerAmount, wobbleFactor, checkpointJuice, safetyCheckpoint, tinyPeanutSize, backupPeanut, safetyCheckpointtwo, startingPocketChange
+    global walletStash, currentWagerAmount, bob, beat, last_observed, wobbleFactor, checkpointJuice, safetyCheckpoint, tinyPeanutSize, backupPeanut, safetyCheckpointtwo, startingPocketChange
 
-    currentWagerAmount = round(float(incoming_wager), 8)
+    currentWagerAmount = incoming_wager
     walletStash = get_balance()
     checkpointJuice = float(checkpointJuice)
     safetyCheckpoint = float(safetyCheckpoint)
     safetyCheckpointtwo = float(safetyCheckpointtwo)
     base_wager = currentWagerAmount
     backupPeanut = tinyPeanutSize
-
-    if walletStash >= round(safetyCheckpoint + ((tinyPeanutSize * 10) * wobbleFactor), 8):
-        currentWagerAmount = round(float(tinyPeanutSize), 8)
-        wobbleFactor = 1.0
-        checkpointJuice = round(float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)), 8)
-        safetyCheckpoint = round(float((math.floor(walletStash / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)), 8)
-        return currentWagerAmount
     
-    if base_wager > backupPeanut:
-        if walletStash > round(checkpointJuice + (base_wager * 4.9), 8):
-            currentWagerAmount = round(float(base_wager * 2.0), 8)
-            checkpointJuice = round(float(walletStash), 8)
-        elif walletStash < round(checkpointJuice - (base_wager * 4.9), 8):
-            currentWagerAmount = round(float(base_wager * 2.0), 8)
-            wobbleFactor = 0.0
-            checkpointJuice = round(float(walletStash), 8)
+    # Only run the external balance security check if we are past the initial setup beat
+    if beat > 0:
+        soulp = (walletStash - last_observed)
+        souly = (last_observed - walletStash)
+        if ((math.isclose(soulp - currentWagerAmount, 0.0, abs_tol=1e-8)) or (math.isclose(soulp + currentWagerAmount, 0.0, abs_tol=1e-8))):
+            last_observed = float(walletStash)
         else:
-            currentWagerAmount = base_wager
-            
-    if base_wager <= backupPeanut:
-        if walletStash > round(checkpointJuice + round(base_wager * 6.9, 8), 8):
-            currentWagerAmount = round(float(base_wager * 2.0), 8)
-            checkpointJuice = round(float(walletStash), 8)
-        elif walletStash < round(checkpointJuice - round(base_wager * 2.9, 8), 8):
-            currentWagerAmount = round(float(base_wager * 2.0), 8)
-            checkpointJuice = round(float(walletStash), 8)
-        else:
-            currentWagerAmount = base_wager
+            print(f"[Security] External balance change detected! Delta: {soulp:+.8f} | Expected Wager: {currentWagerAmount:.8f}. fuck off hacker.")
+            bob = (bob + souly)
+            last_observed = float(walletStash)
+    else:
+        # On beat 0 (initial connection), just sync last_observed without tripping
+        last_observed = float(walletStash)
 
-    return round(float(currentWagerAmount), 8)
+    freak = float(walletStash + bob)
+    if freak >= round(safetyCheckpoint + ((tinyPeanutSize * 10) * wobbleFactor), 8):
+        currentWagerAmount = tinyPeanutSize
+        wobbleFactor = 1.0
+        checkpointJuice = round(float((math.floor(freak / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)), 8)
+        safetyCheckpoint = round(float((math.floor(freak / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)), 8)
+
+    if ((currentWagerAmount > tinyPeanutSize) and (freak < (checkpointJuice - (currentWagerAmount * 4.9)))):
+        wobbleFactor = 0.0
+        currentWagerAmount = (currentWagerAmount* 2)
+        checkpointJuice = float(freak)
+
+    if (((currentWagerAmount <= tinyPeanutSize) and (freak > (checkpointJuice + (currentWagerAmount * 6.9)))) or 
+        ((currentWagerAmount <= tinyPeanutSize) and (freak < (checkpointJuice - (currentWagerAmount * 2.9)))) or 
+        ((currentWagerAmount > tinyPeanutSize) and (freak > (checkpointJuice + (currentWagerAmount * 4.9))))):
+        currentWagerAmount = (currentWagerAmount* 2)
+        checkpointJuice = float(freak)
+
+
+    beat = (beat + 1)
+    currentWagerAmount = round(float(currentWagerAmount), 8)
+    return currentWagerAmount
 
 def log_bet_info(bet_amount, current_balance, total_profit):
     print(f"Bet: {bet_amount:.8f} | Balance: {current_balance:.8f} | Total Profit: {total_profit:+.8f}", flush=True)
@@ -335,7 +347,7 @@ class SnowyBotWindow(QMainWindow):
     def init_bot_state(self):
         global trueOriginalBalance, startingPocketChange, tinyPeanutSize, backupPeanut, tenPeanuts
         global walletStash, previousWalletState, safetyCheckpoint
-        global currentWagerAmount, previousWagerAmount
+        global currentWagerAmount, previousWagerAmount, beat
         global checkpointJuice, wobbleFactor, safetyCheckpointtwo
         global last_observed_balance, last_balance_change_time, logged_in, last_bet_timestamp, last_activity_timestamp, watchdog_threshold, has_placed_first_bet
 
@@ -358,7 +370,7 @@ class SnowyBotWindow(QMainWindow):
         startingPocketChange = float(current_bal)
         walletStash = float(current_bal)
 
-        calculated_tiny = float(startingPocketChange / 1440000.0)
+        calculated_tiny = float(startingPocketChange / 144000)
 
         tinyPeanutSize = (
             float(savedState.get("tinyPeanutSize", calculated_tiny))
@@ -394,6 +406,16 @@ class SnowyBotWindow(QMainWindow):
             float(savedState.get("safetyCheckpointtwo", float((math.floor(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))))
             if savedState
             else float((math.floor(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
+        ) 
+        bob = (
+            float(savedState.get("bob", 0))
+            if savedState
+            else 0
+        )
+        last_observed = (
+            float(savedState.get("last_observed", float(walletStash)))
+            if savedState
+            else float(walletStash)
         )
 
         last_observed_balance = current_bal
@@ -419,7 +441,7 @@ class SnowyBotWindow(QMainWindow):
             return
 
         global walletStash, last_observed_balance, last_balance_change_time
-        global previousWagerAmount, previousWalletState
+        global previousWagerAmount, previousWalletState, beat
         global trueOriginalBalance, startingPocketChange, tinyPeanutSize, backupPeanut, tenPeanuts
         global currentWagerAmount, checkpointJuice, wobbleFactor, safetyCheckpoint, safetyCheckpointtwo
         global watchdog_threshold, last_bet_timestamp, last_activity_timestamp, has_placed_first_bet
@@ -494,7 +516,8 @@ class SnowyBotWindow(QMainWindow):
             save_state()
 
     def trigger_watchdog_refresh(self):
-        global logged_in, has_placed_first_bet, watchdog_threshold
+        global logged_in, has_placed_first_bet, watchdog_threshold, beat
+        beat = 0
         self.timer.stop()
         logged_in = False
         self.is_loaded = False 
