@@ -28,16 +28,11 @@ for just-dice.com
 
 Open your terminal and run the following commands and update package lists and install python3-pip if not already installed
 
-    sudo apt update && sudo apt install -y python3-pip python3-pyqt5 python3-pyqt5.qtwebengine
+    sudo apt update && sudo apt install -y python3-pip python3-pyqt5 python3-pyqt5.qtwebengine python3-aiohttp python3-requests
 
 Install the required Python package for masked password/2FA inputs
     
     pip install pwinput --break-system-packages
-
-for wolfbet.com
-
-    pip install requests pwinput --break-system-packages
-    
 
 (Note: Depending on your Linux distribution, you may need to run inside a Python virtual environment if system package managers restrict global pip installs).
 
@@ -49,7 +44,7 @@ DOS
 
 Install PyQt5 and pwinput via pip
 
-    pip install PyQt5 PyQtWebEngine pwinput requests
+    pip install PyQt5 PyQtWebEngine pwinput requests aiohttp
 
 # 3. macOS
 
@@ -57,7 +52,7 @@ Open your Terminal app and install the dependencies using pip3:
 
 Install required packages
 
-    pip3 install PyQt5 PyQtWebEngine pwinput requests
+    pip3 install PyQt5 PyQtWebEngine pwinput requests aiohttp
 
 How to Use
 
