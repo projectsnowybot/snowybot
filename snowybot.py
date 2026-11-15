@@ -154,13 +154,13 @@ def calculate_next_progression_step(incoming_wager):
             last_observed = float(walletStash)
         else:
             print(f"[Security] External balance change detected! Delta: {soulp:+.8f} | Expected Wager: {currentWagerAmount:.8f}. fuck off hacker.")
-            bob = (bob + souly)
-            last_observed = float(walletStash)
+            save_state()
+            sysexit(1)
     else:
         # On beat 0 (initial connection), just sync last_observed without tripping
         last_observed = float(walletStash)
 
-    freak = float(walletStash + bob)
+    freak = float(walletStash)
     if freak >= round(safetyCheckpoint + ((tinyPeanutSize * 10) * wobbleFactor), 8):
         currentWagerAmount = tinyPeanutSize
         wobbleFactor = 1.0
