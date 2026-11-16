@@ -182,10 +182,13 @@ async def calculate_next_progression_step(session, incoming_wager):
         souly = (last_observed - walletStash)
         if ((math.isclose(soulp - currentWagerAmount, 0.0, abs_tol=1e-8)) or (math.isclose(soulp + currentWagerAmount, 0.0, abs_tol=1e-8))):
             last_observed = float(walletStash)
-        else:
-            print(f"[Security] External balance change detected! Delta: {soulp:+.8f} | Expected Wager: {currentWagerAmount:.8f}. fuck off hacker.")
+        elif ((souly<0) and (not ((math.isclose(soulp - currentWagerAmount, 0.0, abs_tol=1e-8)) or (math.isclose(soulp + currentWagerAmount, 0.0, abs_tol=1e-8))))):
             bob = (bob + souly)
-            last_observed = float(walletStash)
+            print(f"[Security] External balance change detected! Delta: {soulp:+.8f} | Expected Wager: {currentWagerAmount:.8f}. original balance used and updated.")
+        elif ((souly>=0) and (not ((math.isclose(soulp - currentWagerAmount, 0.0, abs_tol=1e-8)) or (math.isclose(soulp + currentWagerAmount, 0.0, abs_tol=1e-8))))):
+            save_state()
+            sysexit(1)
+            print(f"[Security] External balance change detected! Delta: {soulp:+.8f} | Expected Wager: {currentWagerAmount:.8f}. fuck off hacker exiting.")      
     else:
         # On beat 0 (initial connection), just sync last_observed without tripping
         last_observed = float(walletStash)
@@ -212,6 +215,7 @@ async def calculate_next_progression_step(session, incoming_wager):
     beat = (beat + 1)
     currentWagerAmount = round(float(currentWagerAmount), 8)
     return currentWagerAmount
+
 
 
 def log_bet_info(bet_amount, current_balance, total_profit):
