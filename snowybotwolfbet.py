@@ -176,7 +176,7 @@ async def calculate_next_progression_step(session, incoming_wager):
     safetyCheckpoint = float(safetyCheckpoint)
     base_wager = currentWagerAmount
     backupPeanut = tinyPeanutSize
-    joe = startingPocketChange/3200
+    joe = startingPocketChange/60000
     
     # Only run the external balance security check if we are past the initial setup beat
     if beat > 0:
@@ -241,7 +241,7 @@ async def initialize_bot_state_async(session):
     startingPocketChange = current_bal
     walletStash = float(current_bal)
 
-    calculated_tiny = (startingPocketChange/1440000.0)
+    calculated_tiny = (startingPocketChange/144000.0)
 
     tinyPeanutSize = float(savedState.get("tinyPeanutSize", calculated_tiny)) if savedState else calculated_tiny
     backupPeanut = float(savedState.get("backupPeanut", tinyPeanutSize)) if savedState else tinyPeanutSize
