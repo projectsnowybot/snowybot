@@ -180,18 +180,22 @@ async def calculate_next_progression_step(session, incoming_wager):
     if beat > 0:
         soulp = (walletStash - last_observed)
         souly = (last_observed - walletStash)
-        if ((math.isclose(soulp - currentWagerAmount, 0.0, abs_tol=1e-8)) or (math.isclose(soulp + currentWagerAmount, 0.0, abs_tol=1e-8))):
-            last_observed = float(walletStash)
-        else:
-            print(f"[Security] External balance change detected! Delta: {soulp:+.8f} | Expected Wager: {currentWagerAmount:.8f}. fuck off hacker.")
-            if (soulp>0):
-                bob = (bob + souly)
+        if (soulp>0):
+            if ((math.isclose(soulp - currentWagerAmount, 0.0, abs_tol=1e-8)) or (math.isclose(soulp + currentWagerAmount, 0.0, abs_tol=1e-8))):
                 last_observed = float(walletStash)
             else:
+                print(f"[Security] External balance change detected! Delta: {soulp:+.8f} | Expected Wager: {currentWagerAmount:.8f}. balance obviously changed so using oringinal balance.")
+                bob = (bob + souly)
+                last_observed = float(walletStash)
+        elif (souly>0):
+            if ((math.isclose(soulp - currentWagerAmount, 0.0, abs_tol=1e-8)) or (math.isclose(soulp + currentWagerAmount, 0.0, abs_tol=1e-8))):
+                last_observed = float(walletStash)
+            else:
+                print(f"[Security] External balance change detected! Delta: {soulp:+.8f} | Expected Wager: {currentWagerAmount:.8f}. fuck off hacker.")
                 save_state()
                 sys.exit(1)
-    else:
-        # On beat 0 (initial connection), just sync last_observed without tripping
+
+    if beat <= 0:
         last_observed = float(walletStash)
 
     freak = float(walletStash + bob)
@@ -203,13 +207,13 @@ async def calculate_next_progression_step(session, incoming_wager):
 
     if ((currentWagerAmount > tinyPeanutSize) and (freak < (checkpointJuice - (currentWagerAmount * 4.9)))):
         wobbleFactor = 0.0
-        currentWagerAmount = (currentWagerAmount* 2)
+        currentWagerAmount = (currentWagerAmount*2)
         checkpointJuice = float(freak)
 
     if (((currentWagerAmount <= tinyPeanutSize) and (freak > (checkpointJuice + (currentWagerAmount * 6.9)))) or 
         ((currentWagerAmount <= tinyPeanutSize) and (freak < (checkpointJuice - (currentWagerAmount * 2.9)))) or 
         ((currentWagerAmount > tinyPeanutSize) and (freak > (checkpointJuice + (currentWagerAmount * 4.9))))):
-        currentWagerAmount = (currentWagerAmount* 2)
+        currentWagerAmount = (currentWagerAmount*2)
         checkpointJuice = float(freak)
 
 
