@@ -20,8 +20,6 @@ backupPeanut = 0.0
 tenPeanuts = 0.0
 walletStash = 0.0
 bob = 0.0
-wiin = True
-countBet = 0
 previousWalletState = 0.0
 currentWagerAmount = 0.0
 previousWagerAmount = 0.0
@@ -40,7 +38,7 @@ api_token = ""
 currency_symbol = "usdt"
 
 def load_state():
-    global walletStash, currentWagerAmount, bob, countBet, previousWagerAmount, last_observed, checkpointJuice, wobbleFactor, safetyCheckpoint, tinyPeanutSize, backupPeanut, tenPeanuts, startingPocketChange, previousWalletState
+    global walletStash, currentWagerAmount, bob, previousWagerAmount, last_observed, checkpointJuice, wobbleFactor, safetyCheckpoint, safetyCheckpointtwo, tinyPeanutSize, backupPeanut, tenPeanuts, startingPocketChange, previousWalletState
     if os.path.exists(STATE_FILE):
         try:
             with open(STATE_FILE, "r") as f:
@@ -49,7 +47,6 @@ def load_state():
                 bob = float(data.get("bob", bob))
                 startingPocketChange = float(data.get("startingPocketChange", startingPocketChange))
                 tinyPeanutSize = float(data.get("tinyPeanutSize", tinyPeanutSize))
-                countBet = float(data.get("countBet", countBet))
                 backupPeanut = float(data.get("backupPeanut", backupPeanut))
                 tenPeanuts = float(data.get("tenPeanuts", tenPeanuts))
                 previousWalletState = float(data.get("previousWalletState", previousWalletState))
@@ -58,6 +55,7 @@ def load_state():
                 checkpointJuice = float(data.get("checkpointJuice", checkpointJuice))
                 wobbleFactor = float(data.get("wobbleFactor", wobbleFactor))
                 safetyCheckpoint = float(data.get("safetyCheckpoint", safetyCheckpoint))
+                safetyCheckpointtwo = float(data.get("safetyCheckpointtwo", safetyCheckpointtwo))
                 last_observed = float(data.get("last_observed", last_observed))
                 print(f"[Watchdog] State file reloaded successfully from disk.", flush=True)
         except Exception as e:
@@ -70,7 +68,6 @@ def save_state():
         "last_observed": last_observed,
         "bob": bob,
         "tinyPeanutSize": tinyPeanutSize,
-        "countBet": countBet,
         "backupPeanut": backupPeanut,
         "tenPeanuts": tenPeanuts,
         "previousWalletState": previousWalletState,
@@ -79,6 +76,7 @@ def save_state():
         "checkpointJuice": checkpointJuice,
         "wobbleFactor": wobbleFactor,
         "safetyCheckpoint": safetyCheckpoint,
+        "safetyCheckpointtwo": safetyCheckpointtwo,
         "last_seen_timestamp": time.time(),
     }
     try:
@@ -169,52 +167,55 @@ async def get_user_balance_async(session):
     return None
     
 async def calculate_next_progression_step(session, incoming_wager):
-    global walletStash, currentWagerAmount, wiin, countBet, bob, wobbleFactor, checkpointJuice, safetyCheckpoint, tinyPeanutSize, backupPeanut, base_wager, last_observed, beat
+    global walletStash, currentWagerAmount, bob, wobbleFactor, checkpointJuice, safetyCheckpoint, tinyPeanutSize, backupPeanut, safetyCheckpointtwo, base_wager, last_observed, beat
     
     currentWagerAmount = incoming_wager
     checkpointJuice = float(checkpointJuice)
     safetyCheckpoint = float(safetyCheckpoint)
+    safetyCheckpointtwo = float(safetyCheckpointtwo)
     base_wager = currentWagerAmount
     backupPeanut = tinyPeanutSize
-    joe = startingPocketChange/60000
     
     # Only run the external balance security check if we are past the initial setup beat
     if beat > 0:
         soulp = (walletStash - last_observed)
         souly = (last_observed - walletStash)
-        if (souly>0):
-            wiin = False
-            countBet = countBet+1
+        if ((math.isclose(soulp - currentWagerAmount, 0.0, abs_tol=1e-8)) or (math.isclose(soulp + currentWagerAmount, 0.0, abs_tol=1e-8))):
             last_observed = float(walletStash)
-        if (soulp>0):
-            wiin = True
-            last_observed = float(walletStash)  
+        else:
+            print(f"[Security] External balance change detected! Delta: {soulp:+.8f} | Expected Wager: {currentWagerAmount:.8f}. fuck off hacker.")
+            if (soulp>0):
+                bob = (bob + souly)
+                last_observed = float(walletStash)
+            else:
+                save_state()
+                sysexit(1)
     else:
         # On beat 0 (initial connection), just sync last_observed without tripping
-        countBet = countBet+1
         last_observed = float(walletStash)
 
     freak = float(walletStash + bob)
-    if freak >= (safetyCheckpoint + joe):
+    if freak >= round(safetyCheckpoint + ((tinyPeanutSize * 10) * wobbleFactor), 8):
         currentWagerAmount = tinyPeanutSize
-        countBet = 0
-        safetyCheckpoint = float(walletStash)
+        wobbleFactor = 1.0
+        checkpointJuice = round(float((math.floor(freak / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)), 8)
+        safetyCheckpoint = round(float((math.floor(freak / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)), 8)
 
-    if (countBet>=7):
+    if ((currentWagerAmount > tinyPeanutSize) and (freak < (checkpointJuice - (currentWagerAmount * 4.9)))):
+        wobbleFactor = 0.0
         currentWagerAmount = (currentWagerAmount* 2)
-        countBet = 0
-    
-    if wiin:
-        currentWagerAmount = round((currentWagerAmount*0.65), 8)
-        wiin = False
+        checkpointJuice = float(freak)
 
-    if currentWagerAmount<tinyPeanutSize:
-        currentWagerAmount = tinyPeanutSize
+    if (((currentWagerAmount <= tinyPeanutSize) and (freak > (checkpointJuice + (currentWagerAmount * 6.9)))) or 
+        ((currentWagerAmount <= tinyPeanutSize) and (freak < (checkpointJuice - (currentWagerAmount * 2.9)))) or 
+        ((currentWagerAmount > tinyPeanutSize) and (freak > (checkpointJuice + (currentWagerAmount * 4.9))))):
+        currentWagerAmount = (currentWagerAmount* 2)
+        checkpointJuice = float(freak)
+
 
     beat = (beat + 1)
     currentWagerAmount = round(float(currentWagerAmount), 8)
     return currentWagerAmount
-
 
 
 def log_bet_info(bet_amount, current_balance, total_profit):
@@ -241,7 +242,7 @@ async def initialize_bot_state_async(session):
     startingPocketChange = current_bal
     walletStash = float(current_bal)
 
-    calculated_tiny = (startingPocketChange/144000.0)
+    calculated_tiny = float(startingPocketChange / 144000)
 
     tinyPeanutSize = float(savedState.get("tinyPeanutSize", calculated_tiny)) if savedState else calculated_tiny
     backupPeanut = float(savedState.get("backupPeanut", tinyPeanutSize)) if savedState else tinyPeanutSize
@@ -254,12 +255,13 @@ async def initialize_bot_state_async(session):
     default_chk = walletStash
     checkpointJuice = float(savedState.get("checkpointJuice", float((math.floor(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)))) if savedState else float((math.floor(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
     wobbleFactor = float(savedState.get("wobbleFactor", 1.0)) if savedState else 1.0
-    safetyCheckpoint = float(savedState.get("safetyCheckpoint", float(walletStash))) if savedState else float(walletStash)
+    safetyCheckpoint = float(savedState.get("safetyCheckpoint", float(((math.floor(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))))) if savedState else float(((math.floor(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)))
+    global safetyCheckpointtwo
+    safetyCheckpointtwo = float(savedState.get("safetyCheckpointtwo", float((math.floor(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)))) if savedState else float((math.floor(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
 
     last_observed_balance = current_bal
     last_observed = float(savedState.get("last_observed", current_bal)) if savedState else current_bal
     bob = float(savedState.get("bob", 0.0)) if savedState else 0.0
-    countBet = float(savedState.get("countBet", 0.0)) if savedState else 0.0
     last_balance_change_time = time.time()
 
     total_profit_init = walletStash - trueOriginalBalance
@@ -302,8 +304,8 @@ async def run_betting_loop():
             "game": "dice",
             "amount": f"{computedNextBet:.8f}",
             "rule": "under",
-            "multiplier": "10",
-            "bet_value": "9.9"
+            "multiplier": "2",
+            "bet_value": "49.5"
         }
         previousWagerAmount = computedNextBet
         bet_response = await api_request_async(session, "bet/place", method="POST", payload=bet_payload)
@@ -329,7 +331,7 @@ async def run_betting_loop():
             save_state()
 
         while True:
-            if walletStash >= 144000.0:
+            if walletStash >= 14.4:
                 total_profit = walletStash - trueOriginalBalance
                 print(f"\n[System] TARGET REACHED ({walletStash:.8f}). Total Cumulative Profit: {total_profit:+.8f}. Halting.", flush=True)
                 for f_path in [STATE_FILE, MASTER_STATE_FILE]:
@@ -358,8 +360,8 @@ async def run_betting_loop():
                     "game": "dice",
                     "amount": f"{computedNextBet:.8f}",
                     "rule": "under",
-                    "multiplier": "10",
-                    "bet_value": "9.9"
+                    "multiplier": "2",
+                    "bet_value": "49.5"
                 }
 
                 previousWagerAmount = computedNextBet
