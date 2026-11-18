@@ -203,31 +203,20 @@ async def calculate_next_progression_step(session, incoming_wager):
     if beat <= 0:
         last_observed = float(walletStash)
 
-    dopey = float(safetyCheckpoint-(tinyPeanutSize*14))
-    frack = float(walletStash + bob) 
-    freak = float(frack - dopey)
-    if freak<=0:
-        safetyCheckpoint = float(walletStash + bob)
-        dopey = (safetyCheckpoint-(tinyPeanutSize*14))
-        frack = float(walletStash + bob) 
-        freak = float(frack - dopey)
+    freak = float(walletStash + bob) 
 
     if (freak > forker):
         forker = float(freak)
 
-    if ((freak-(currentWagerAmount*2))<=0):
+    if (freak<=(checkpointJuice-(tinyPeanutSize*23.9))):
         currentWagerAmount = tinyPeanutSize
         forker = float(freak)
-        checkpointJuice = float(freak)
-
-    if (((freak-(currentWagerAmount*9))<0) and (freak >= forker)):
+        checkpointJuice = float((math.floor(freak/(tinyPeanutSize*10)))*(tinyPeanutSize*10))
+  
+    if ((freak>=(checkpointJuice+(tinyPeanutSize*31.9))) and (freak>=forker)):
         currentWagerAmount = tinyPeanutSize
         forker = float(freak)
-        checkpointJuice = float(freak)
-        safetyCheckpoint = float(walletStash + bob)
-        dopey = (safetyCheckpoint-(tinyPeanutSize*14))
-        frack = float(walletStash + bob) 
-        freak = float(frack - dopey)
+        checkpointJuice = float((math.floor(freak/(tinyPeanutSize*10)))*(tinyPeanutSize*10))
         
     if ((currentWagerAmount > tinyPeanutSize) and (freak < (checkpointJuice - (currentWagerAmount * 4.9)))):
         currentWagerAmount = (currentWagerAmount* 2)
@@ -283,7 +272,7 @@ async def initialize_bot_state_async(session):
     wobbleFactor = float(savedState.get("wobbleFactor", 1.0)) if savedState else 1.0
     safetyCheckpoint = float(savedState.get("safetyCheckpoint", float(default_chk))) if savedState else float(default_chk)
     global safetyCheckpointtwo
-    safetyCheckpointtwo = float(savedState.get("safetyCheckpointtwo", float((math.floor(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)))) if savedState else float((math.floor(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
+    safetyCheckpointtwo = float(savedState.get("safetyCheckpointtwo", 999999999999999999999999999999999999.0)) if savedState else 999999999999999999999999999999999999.0
 
     last_observed_balance = current_bal
     forker = current_bal
