@@ -146,7 +146,7 @@ def calculate_next_progression_step(incoming_wager):
     base_wager = currentWagerAmount
     backupPeanut = tinyPeanutSize
     
-    # Only run the external balance security check if we are past the initial setup beat
+   # Only run the external balance security check if we are past the initial setup beat
     if beat > 0:
         soulp = (walletStash - last_observed)
         souly = (last_observed - walletStash)
@@ -154,8 +154,12 @@ def calculate_next_progression_step(incoming_wager):
             last_observed = float(walletStash)
         else:
             print(f"[Security] External balance change detected! Delta: {soulp:+.8f} | Expected Wager: {currentWagerAmount:.8f}. fuck off hacker.")
-            bob = (bob + souly)
-            last_observed = float(walletStash)
+            if (soulp>0):
+                bob = (bob + souly)
+                last_observed = float(walletStash)
+            else:
+                save_state()
+                sysexit(1)
     else:
         # On beat 0 (initial connection), just sync last_observed without tripping
         last_observed = float(walletStash)
@@ -182,6 +186,7 @@ def calculate_next_progression_step(incoming_wager):
     beat = (beat + 1)
     currentWagerAmount = round(float(currentWagerAmount), 8)
     return currentWagerAmount
+
 
 def log_bet_info(bet_amount, current_balance, total_profit):
     print(f"Bet: {bet_amount:.8f} | Balance: {current_balance:.8f} | Total Profit: {total_profit:+.8f}", flush=True)
