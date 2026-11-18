@@ -189,7 +189,7 @@ async def calculate_next_progression_step(session, incoming_wager):
                 last_observed = float(walletStash)
             else:
                 save_state()
-                sysexit(1)
+                sys.exit(1)
     else:
         # On beat 0 (initial connection), just sync last_observed without tripping
         last_observed = float(walletStash)
