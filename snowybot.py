@@ -41,6 +41,7 @@ safetyCheckpointtwo = 0.0
 bob = 0
 beat = 0
 last_observed = 0.0
+forker = 0.0
 
 last_balance_change_time = time.time()
 last_observed_balance = 0.0
@@ -72,6 +73,7 @@ def save_state():
         "tinyPeanutSize": round(float(tinyPeanutSize), 8),
         "last_observed": round(float(last_observed), 8),
         "bob": bob,
+        "forker": round(float(forker), 8),
         "backupPeanut": round(float(backupPeanut), 8),
         "tenPeanuts": round(float(tenPeanuts), 8),
         "previousWalletState": round(float(previousWalletState), 8),
@@ -136,15 +138,18 @@ def get_balance():
     return bal_result[0]
 
 def calculate_next_progression_step(incoming_wager):
-    global walletStash, currentWagerAmount, bob, beat, last_observed, wobbleFactor, checkpointJuice, safetyCheckpoint, tinyPeanutSize, backupPeanut, safetyCheckpointtwo, startingPocketChange
+    global walletStash, currentWagerAmount, bob, beat, forker, last_observed, wobbleFactor, checkpointJuice, safetyCheckpoint, tinyPeanutSize, backupPeanut, safetyCheckpointtwo, startingPocketChange
 
     currentWagerAmount = incoming_wager
     walletStash = get_balance()
     checkpointJuice = float(checkpointJuice)
+    forker = float(forker)
     safetyCheckpoint = float(safetyCheckpoint)
     safetyCheckpointtwo = float(safetyCheckpointtwo)
     base_wager = currentWagerAmount
     backupPeanut = tinyPeanutSize
+    beat = float(beat)
+    bob = float(bob)
     
     # Only run the external balance security check if we are past the initial setup beat
     if beat > 0:
@@ -168,15 +173,27 @@ def calculate_next_progression_step(incoming_wager):
     if beat <= 0:
         last_observed = float(walletStash)
 
-    freak = float(walletStash + bob)
-    if freak >= round(safetyCheckpoint + ((tinyPeanutSize * 10) * wobbleFactor), 8):
-        currentWagerAmount = tinyPeanutSize
-        wobbleFactor = 1.0
-        checkpointJuice = round(float((math.floor(freak / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)), 8)
-        safetyCheckpoint = round(float((math.floor(freak / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)), 8)
+    dopey = float(safetyCheckpoint-(tinyPeanutSize*10))
+    frack = float(walletStash + bob) 
+    freak = float(frack - dopey)
+    if freak<=0:
+        safetyCheckpoint = float(walletStash + bob)
+        dopey = (safetyCheckpoint-(tinyPeanutSize*10))
+        frack = float(walletStash + bob) 
+        freak = float(frack - dopey)
 
+
+    if ((freak-((currentWagerAmount*2)+tinyPeanutSize))<=0):
+        currentWagerAmount = tinyPeanutSize
+        forker = float(freak)
+        checkpointJuice = float((math.floor(freak/(tinyPeanutSize * 10)))*(tinyPeanutSize * 10))
+
+    if (((freak-((currentWagerAmount*4)+tinyPeanutSize))<=0) and (freak >= (forker+(tinyPeanutSize*10)))):
+        currentWagerAmount = tinyPeanutSize
+        forker = float(freak)
+        checkpointJuice = float((math.floor(freak/(tinyPeanutSize * 10)))*(tinyPeanutSize * 10))
+        
     if ((currentWagerAmount > tinyPeanutSize) and (freak < (checkpointJuice - (currentWagerAmount * 4.9)))):
-        wobbleFactor = 0.0
         currentWagerAmount = (currentWagerAmount* 2)
         checkpointJuice = float(freak)
 
@@ -185,7 +202,6 @@ def calculate_next_progression_step(incoming_wager):
         ((currentWagerAmount > tinyPeanutSize) and (freak > (checkpointJuice + (currentWagerAmount * 4.9))))):
         currentWagerAmount = (currentWagerAmount* 2)
         checkpointJuice = float(freak)
-
 
     beat = (beat + 1)
     currentWagerAmount = round(float(currentWagerAmount), 8)
@@ -426,7 +442,11 @@ class SnowyBotWindow(QMainWindow):
             if savedState
             else float(walletStash)
         )
-
+        forker = (
+            float(savedState.get("forker", float(walletStash)))
+            if savedState
+            else float(walletStash)
+        )
         last_observed_balance = current_bal
         current_time = time.time()
         last_balance_change_time = current_time
@@ -464,12 +484,7 @@ class SnowyBotWindow(QMainWindow):
 
         current_time = time.time()
 
-        balance_changed = (walletStash == round((last_observed_balance + previousWagerAmount), 8) or walletStash == round((last_observed_balance - previousWagerAmount), 8))
-        
-        seriously_retarded_hacker_stopper_threshold = ((walletStash == last_observed_balance) or balance_changed)
-        if not seriously_retarded_hacker_stopper_threshold:
-            print("seriously_retarded_hacker_stopper activated, exiting...")
-            sys.exit(0)
+        balance_changed = (walletStash!=last_observed_balance)
 
         if walletStash > 0 and balance_changed:
             self.watchdog_fail_count = 0  
