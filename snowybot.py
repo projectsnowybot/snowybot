@@ -191,6 +191,10 @@ def calculate_next_progression_step(incoming_wager):
     if (((freak-((currentWagerAmount*4)+tinyPeanutSize))<=0) and (freak >= (forker+(tinyPeanutSize*10)))):
         currentWagerAmount = tinyPeanutSize
         forker = float(freak)
+        safetyCheckpoint = float(walletStash + bob)
+        dopey = (safetyCheckpoint-(tinyPeanutSize*10))
+        frack = float(walletStash + bob) 
+        freak = float(frack - dopey)
         checkpointJuice = float((math.floor(freak/(tinyPeanutSize * 10)))*(tinyPeanutSize * 10))
         
     if ((currentWagerAmount > tinyPeanutSize) and (freak < (checkpointJuice - (currentWagerAmount * 4.9)))):
