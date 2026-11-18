@@ -399,7 +399,7 @@ class SnowyBotWindow(QMainWindow):
         startingPocketChange = float(current_bal)
         walletStash = float(current_bal)
 
-        calculated_tiny = float(startingPocketChange / 144000)
+        calculated_tiny = float(startingPocketChange / 320)
 
         tinyPeanutSize = (
             float(savedState.get("tinyPeanutSize", calculated_tiny))
