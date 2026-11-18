@@ -205,7 +205,7 @@ async def calculate_next_progression_step(session, incoming_wager):
         countBet = 0
     
     if wiin:
-        currentWagerAmount = round((currentWagerAmount*0.45), 8)
+        currentWagerAmount = round((currentWagerAmount*0.65), 8)
         wiin = False
 
     if currentWagerAmount<tinyPeanutSize:
