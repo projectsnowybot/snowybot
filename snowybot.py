@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from decimal import Decimal, ROUND_DOWN
 import json
 import math
 import os
@@ -59,10 +58,10 @@ logged_in = False
 _active_window = None
 
 
-def floor_to_step(value: Decimal, step: Decimal) -> Decimal:
-    if step <= Decimal("0"):
+def floor_to_step(value: float, step: float) -> float:
+    if step <= 0.0:
         return value
-    return Decimal(str(math.floor(value / step))) * step
+    return round(float(math.floor(value / step)) * step, 8)
 
 
 def load_state():
@@ -112,7 +111,7 @@ def load_master_state():
 
 
 def save_master_state(balance):
-    master_state = {"trueOriginalBalance": balance}
+    master_state = {"trueOriginalBalance": round(float(balance), 8)}
     try:
         with open(MASTER_STATE_FILE, "w") as f:
             json.dump(master_state, f)
@@ -155,106 +154,89 @@ def calculate_next_progression_step(incoming_wager):
     global wobbleFactor, checkpointJuice, safetyCheckpoint, tinyPeanutSize
     global backupPeanut, safetyCheckpointtwo, startingPocketChange
 
-    wallet_dec = Decimal(str(get_balance()))
-    walletStash = float(wallet_dec)
+    currentWagerAmount = float(incoming_wager)
+    walletStash = float(get_balance())
+    checkpointJuice = float(checkpointJuice)
+    forker = float(forker)
+    safetyCheckpoint = float(safetyCheckpoint)
+    safetyCheckpointtwo = float(safetyCheckpointtwo)
+    backupPeanut = float(tinyPeanutSize)
+    bob = float(bob)
+    last_observed = float(last_observed)
 
-    wager_dec = Decimal(str(incoming_wager))
-    tiny_dec = Decimal(str(tinyPeanutSize))
-    ten_peanuts_val = tiny_dec * Decimal("10")
-
-    chk_dec = Decimal(str(checkpointJuice))
-    forker_dec = Decimal(str(forker))
-    safe1_dec = Decimal(str(safetyCheckpoint))
-    safe2_dec = Decimal(str(safetyCheckpointtwo))
-    bob_dec = Decimal(str(bob))
-    last_obs_dec = Decimal(str(last_observed))
-
-    backupPeanut = float(tiny_dec)
-
+    # Only run the external balance security check if we are past the initial setup beat
     if beat > 0:
-        soulp = wallet_dec - last_obs_dec
-        souly = last_obs_dec - wallet_dec
-        tol = Decimal("0.00000001")
+        soulp = walletStash - last_observed
+        souly = last_observed - walletStash
         matches_wager = (
-            abs(soulp - wager_dec) <= tol
-            or abs(soulp + wager_dec) <= tol
+            math.isclose(soulp - currentWagerAmount, 0.0, abs_tol=1e-8)
+            or math.isclose(soulp + currentWagerAmount, 0.0, abs_tol=1e-8)
         )
         if soulp > 0:
             if matches_wager:
-                last_obs_dec = wallet_dec
+                last_observed = float(walletStash)
             else:
                 print(
                     f"[Security] External balance change detected! Delta: {soulp:+.8f} "
-                    f"| Expected Wager: {wager_dec:.8f}. Using original balance.",
+                    f"| Expected Wager: {currentWagerAmount:.8f}. balance obviously changed so using original balance.",
                     flush=True,
                 )
-                bob_dec = bob_dec + souly
-                last_obs_dec = wallet_dec
+                bob = bob + souly
+                last_observed = float(walletStash)
         elif souly > 0:
             if matches_wager:
-                last_obs_dec = wallet_dec
+                last_observed = float(walletStash)
             else:
                 print(
                     f"[Security] External balance change detected! Delta: {soulp:+.8f} "
-                    f"| Expected Wager: {wager_dec:.8f}. Halting.",
+                    f"| Expected Wager: {currentWagerAmount:.8f}. Halting.",
                     flush=True,
                 )
-                bob = float(bob_dec)
-                last_observed = float(last_obs_dec)
                 save_state()
                 sys.exit(1)
 
     if beat <= 0:
-        last_obs_dec = wallet_dec
+        last_observed = float(walletStash)
 
-    dopey = safe1_dec - ten_peanuts_val
-    frack = wallet_dec + bob_dec
+    ten_peanuts_val = tinyPeanutSize * 10.0
+    dopey = safetyCheckpoint - ten_peanuts_val
+    frack = walletStash + bob
     freak = frack - dopey
     if freak <= 0:
-        safe1_dec = wallet_dec + bob_dec
-        dopey = safe1_dec - ten_peanuts_val
-        frack = wallet_dec + bob_dec
+        safetyCheckpoint = float(walletStash + bob)
+        dopey = safetyCheckpoint - ten_peanuts_val
+        frack = walletStash + bob
         freak = frack - dopey
 
-    if (freak - ((wager_dec * Decimal("2")) + tiny_dec)) <= 0:
-        wager_dec = tiny_dec
-        forker_dec = frack
-        chk_dec = floor_to_step(frack, ten_peanuts_val)
-
-    if ((freak - ((wager_dec * Decimal("4")) + tiny_dec)) <= 0) and (frack >= (forker_dec + ten_peanuts_val)):
-        wager_dec = tiny_dec
-        forker_dec = frack
-        safe1_dec = wallet_dec + bob_dec
-        dopey = safe1_dec - ten_peanuts_val
-        frack = wallet_dec + bob_dec
+    if (freak - ((currentWagerAmount * 2.0) + tinyPeanutSize)) <= 0:
+        currentWagerAmount = tinyPeanutSize
+        dopey = safetyCheckpoint - ten_peanuts_val
+        frack = walletStash + bob
         freak = frack - dopey
-        chk_dec = floor_to_step(frack, ten_peanuts_val)
+        forker = float(frack)
+        checkpointJuice = floor_to_step(frack, ten_peanuts_val)
 
-    if (wager_dec > tiny_dec) and (frack < (chk_dec - (wager_dec * Decimal("4.9")))):
-        wager_dec = wager_dec * Decimal("2")
-        chk_dec = frack
+    if ((freak - ((currentWagerAmount * 4.0) + tinyPeanutSize)) <= 0) and (frack >= (forker + ten_peanuts_val)):
+        currentWagerAmount = tinyPeanutSize
+        safetyCheckpoint = float(walletStash + bob)
+        dopey = safetyCheckpoint - ten_peanuts_val
+        frack = walletStash + bob
+        freak = frack - dopey
+        forker = float(frack)
+        checkpointJuice = floor_to_step(frack, ten_peanuts_val)
 
     if (
-        ((wager_dec <= tiny_dec) and (frack > (chk_dec + (wager_dec * Decimal("6.9")))))
-        or ((wager_dec <= tiny_dec) and (frack < (chk_dec - (wager_dec * Decimal("2.9")))))
-        or ((wager_dec > tiny_dec) and (frack > (chk_dec + (wager_dec * Decimal("4.9")))))
+        ((currentWagerAmount <= tinyPeanutSize) and (frack > (checkpointJuice + (currentWagerAmount * 6.9))))
+        or ((currentWagerAmount <= tinyPeanutSize) and (frack < (checkpointJuice - (currentWagerAmount * 2.9))))
+        or ((currentWagerAmount > tinyPeanutSize) and (frack > (checkpointJuice + (currentWagerAmount * 4.9))))
+        or ((currentWagerAmount > tinyPeanutSize) and (frack < (checkpointJuice - (currentWagerAmount * 4.9))))
     ):
-        wager_dec = wager_dec * Decimal("2")
-        chk_dec = frack
+        currentWagerAmount = float(currentWagerAmount * 2.0)
+        checkpointJuice = float(frack)
 
     beat += 1
-    wager_dec = wager_dec.quantize(Decimal("0.00000001"), rounding=ROUND_DOWN)
-
-    # Sync module-level state
-    currentWagerAmount = float(wager_dec)
-    checkpointJuice = float(chk_dec)
-    forker = float(forker_dec)
-    safetyCheckpoint = float(safe1_dec)
-    safetyCheckpointtwo = float(safe2_dec)
-    bob = float(bob_dec)
-    last_observed = float(last_obs_dec)
-
-    return wager_dec
+    currentWagerAmount = math.floor(currentWagerAmount * 1e8) / 1e8
+    return currentWagerAmount
 
 
 def log_bet_info(bet_amount, current_balance, total_profit):
@@ -449,7 +431,7 @@ class SnowyBotWindow(QMainWindow):
         startingPocketChange = float(current_bal)
         walletStash = float(current_bal)
 
-        calculated_tiny = float(startingPocketChange / 320)
+        calculated_tiny = float(startingPocketChange / 320.0)
 
         tinyPeanutSize = (
             float(savedState.get("tinyPeanutSize", calculated_tiny))
@@ -457,7 +439,7 @@ class SnowyBotWindow(QMainWindow):
             else calculated_tiny
         )
         backupPeanut = tinyPeanutSize
-        tenPeanuts = float(savedState.get("tenPeanuts", tinyPeanutSize * 10)) if savedState else tinyPeanutSize * 10
+        tenPeanuts = float(savedState.get("tenPeanuts", tinyPeanutSize * 10.0)) if savedState else tinyPeanutSize * 10.0
 
         previousWalletState = float(savedState.get("previousWalletState", walletStash)) if savedState else walletStash
 
@@ -469,24 +451,17 @@ class SnowyBotWindow(QMainWindow):
         )
 
         default_chk = walletStash
-        checkpointJuice = (
-            float(savedState.get("checkpointJuice", float((math.floor(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))))
-            if savedState
-            else float((math.floor(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
-        )
+        base_floor = floor_to_step(default_chk, tinyPeanutSize * 10.0)
+        checkpointJuice = float(savedState.get("checkpointJuice", base_floor)) if savedState else base_floor
         wobbleFactor = float(savedState.get("wobbleFactor", 1.0)) if savedState else 1.0
 
         safetyCheckpoint = (
-            float(savedState.get("safetyCheckpoint", float(((math.floor(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) - (tinyPeanutSize * 10))))
+            float(savedState.get("safetyCheckpoint", base_floor - (tinyPeanutSize * 10.0)))
             if savedState
-            else float(((math.floor(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) - (tinyPeanutSize * 10))
+            else base_floor - (tinyPeanutSize * 10.0)
         )
-        safetyCheckpointtwo = (
-            float(savedState.get("safetyCheckpointtwo", float((math.floor(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))))
-            if savedState
-            else float((math.floor(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
-        )
-        bob = float(savedState.get("bob", 0)) if savedState else 0.0
+        safetyCheckpointtwo = float(savedState.get("safetyCheckpointtwo", base_floor)) if savedState else base_floor
+        bob = float(savedState.get("bob", 0.0)) if savedState else 0.0
         last_observed = float(savedState.get("last_observed", float(walletStash))) if savedState else float(walletStash)
         forker = float(savedState.get("forker", float(walletStash))) if savedState else float(walletStash)
 
@@ -530,7 +505,7 @@ class SnowyBotWindow(QMainWindow):
             return
 
         current_time = time.time()
-        balance_changed = walletStash != last_observed_balance
+        balance_changed = not math.isclose(walletStash, last_observed_balance, abs_tol=1e-9)
 
         if walletStash > 0 and balance_changed:
             self.watchdog_fail_count = 0
@@ -545,7 +520,7 @@ class SnowyBotWindow(QMainWindow):
             self.trigger_watchdog_refresh()
             return
 
-        if walletStash >= (startingPocketChange * 3):
+        if walletStash >= (startingPocketChange * 3.0):
             total_profit = walletStash - trueOriginalBalance
             print(
                 f"\n[System] TARGET REACHED ({walletStash:.8f}). Total Cumulative Profit: {total_profit:+.8f}. "
@@ -583,7 +558,7 @@ class SnowyBotWindow(QMainWindow):
             }})();
             """
             self.browser.page().runJavaScript(js_place_bet)
-            previousWagerAmount = float(computedNextBet)
+            previousWagerAmount = computedNextBet
             previousWalletState = walletStash
             last_bet_timestamp = time.time()
             watchdog_threshold = 15.0

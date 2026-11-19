@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import asyncio
-from decimal import Decimal, ROUND_DOWN
 import json
 import math
 import os
@@ -15,26 +14,26 @@ STATE_FILE = "bot_state_wolfbet.json"
 MASTER_STATE_FILE = "bot_master_state_wolfbet.json"
 API_BASE_URL = "https://wolfbet.com/api/v1"
 
-# Financial variables initialized safely as Decimals
-trueOriginalBalance = Decimal('0.0')
-startingPocketChange = Decimal('0.0')
-tinyPeanutSize = Decimal('0.0')
-backupPeanut = Decimal('0.0')
-tenPeanuts = Decimal('0.0')
-walletStash = Decimal('0.0')
-bob = Decimal('0.0')
-previousWalletState = Decimal('0.0')
-currentWagerAmount = Decimal('0.0')
-previousWagerAmount = Decimal('0.0')
-checkpointJuice = Decimal('0.0')
-wobbleFactor = Decimal('1.0')
-safetyCheckpoint = Decimal('0.0')
-safetyCheckpointtwo = Decimal('0.0')
-last_observed = Decimal('0.0')
+# Financial variables initialized safely as floats
+trueOriginalBalance = 0.0
+startingPocketChange = 0.0
+tinyPeanutSize = 0.0
+backupPeanut = 0.0
+tenPeanuts = 0.0
+walletStash = 0.0
+bob = 0.0
+previousWalletState = 0.0
+currentWagerAmount = 0.0
+previousWagerAmount = 0.0
+checkpointJuice = 0.0
+wobbleFactor = 1.0
+safetyCheckpoint = 0.0
+safetyCheckpointtwo = 0.0
+last_observed = 0.0
 beat = 0
-forker = Decimal('0.0')
+forker = 0.0
 
-last_observed_balance = Decimal('0.0')
+last_observed_balance = 0.0
 last_balance_change_time = time.time()
 watchdog_threshold = 10.0
 
@@ -45,10 +44,10 @@ auto_rotate_interval = 0
 total_bets_placed = 0
 
 
-def floor_to_step(value: Decimal, step: Decimal) -> Decimal:
-    if step <= Decimal('0'):
+def floor_to_step(value: float, step: float) -> float:
+    if step <= 0.0:
         return value
-    return Decimal(str(math.floor(value / step))) * step
+    return round(float(math.floor(value / step)) * step, 8)
 
 
 def load_state():
@@ -60,42 +59,42 @@ def load_state():
         try:
             with open(STATE_FILE, "r") as f:
                 data = json.load(f)
-                walletStash = Decimal(str(data.get("walletStash", walletStash)))
-                forker = Decimal(str(data.get("forker", forker)))
-                bob = Decimal(str(data.get("bob", bob)))
-                startingPocketChange = Decimal(str(data.get("startingPocketChange", startingPocketChange)))
-                tinyPeanutSize = Decimal(str(data.get("tinyPeanutSize", tinyPeanutSize)))
-                backupPeanut = Decimal(str(data.get("backupPeanut", backupPeanut)))
-                tenPeanuts = Decimal(str(data.get("tenPeanuts", tenPeanuts)))
-                previousWalletState = Decimal(str(data.get("previousWalletState", previousWalletState)))
-                currentWagerAmount = Decimal(str(data.get("currentWagerAmount", currentWagerAmount)))
-                previousWagerAmount = Decimal(str(data.get("previousWagerAmount", previousWagerAmount)))
-                checkpointJuice = Decimal(str(data.get("checkpointJuice", checkpointJuice)))
-                wobbleFactor = Decimal(str(data.get("wobbleFactor", wobbleFactor)))
-                safetyCheckpoint = Decimal(str(data.get("safetyCheckpoint", safetyCheckpoint)))
-                safetyCheckpointtwo = Decimal(str(data.get("safetyCheckpointtwo", safetyCheckpointtwo)))
-                last_observed = Decimal(str(data.get("last_observed", last_observed)))
+                walletStash = float(data.get("walletStash", walletStash))
+                forker = float(data.get("forker", forker))
+                bob = float(data.get("bob", bob))
+                startingPocketChange = float(data.get("startingPocketChange", startingPocketChange))
+                tinyPeanutSize = float(data.get("tinyPeanutSize", tinyPeanutSize))
+                backupPeanut = float(data.get("backupPeanut", backupPeanut))
+                tenPeanuts = float(data.get("tenPeanuts", tenPeanuts))
+                previousWalletState = float(data.get("previousWalletState", previousWalletState))
+                currentWagerAmount = float(data.get("currentWagerAmount", currentWagerAmount))
+                previousWagerAmount = float(data.get("previousWagerAmount", previousWagerAmount))
+                checkpointJuice = float(data.get("checkpointJuice", checkpointJuice))
+                wobbleFactor = float(data.get("wobbleFactor", wobbleFactor))
+                safetyCheckpoint = float(data.get("safetyCheckpoint", safetyCheckpoint))
+                safetyCheckpointtwo = float(data.get("safetyCheckpointtwo", safetyCheckpointtwo))
+                last_observed = float(data.get("last_observed", last_observed))
         except Exception:
             pass
 
 
 def save_state():
     bot_state = {
-        "walletStash": str(walletStash),
-        "startingPocketChange": str(startingPocketChange),
-        "last_observed": str(last_observed),
-        "forker": str(forker),
-        "bob": str(bob),
-        "tinyPeanutSize": str(tinyPeanutSize),
-        "backupPeanut": str(backupPeanut),
-        "tenPeanuts": str(tenPeanuts),
-        "previousWalletState": str(previousWalletState),
-        "currentWagerAmount": str(currentWagerAmount),
-        "previousWagerAmount": str(previousWagerAmount),
-        "checkpointJuice": str(checkpointJuice),
-        "wobbleFactor": str(wobbleFactor),
-        "safetyCheckpoint": str(safetyCheckpoint),
-        "safetyCheckpointtwo": str(safetyCheckpointtwo),
+        "walletStash": round(float(walletStash), 8),
+        "startingPocketChange": round(float(startingPocketChange), 8),
+        "last_observed": round(float(last_observed), 8),
+        "forker": round(float(forker), 8),
+        "bob": round(float(bob), 8),
+        "tinyPeanutSize": round(float(tinyPeanutSize), 8),
+        "backupPeanut": round(float(backupPeanut), 8),
+        "tenPeanuts": round(float(tenPeanuts), 8),
+        "previousWalletState": round(float(previousWalletState), 8),
+        "currentWagerAmount": round(float(currentWagerAmount), 8),
+        "previousWagerAmount": round(float(previousWagerAmount), 8),
+        "checkpointJuice": round(float(checkpointJuice), 8),
+        "wobbleFactor": wobbleFactor,
+        "safetyCheckpoint": round(float(safetyCheckpoint), 8),
+        "safetyCheckpointtwo": round(float(safetyCheckpointtwo), 8),
         "last_seen_timestamp": time.time(),
     }
     try:
@@ -116,7 +115,7 @@ def load_master_state():
 
 
 def save_master_state(balance):
-    master_state = {"trueOriginalBalance": str(balance)}
+    master_state = {"trueOriginalBalance": round(float(balance), 8)}
     try:
         with open(MASTER_STATE_FILE, "w") as f:
             json.dump(master_state, f)
@@ -214,7 +213,7 @@ async def get_user_balance_async(session):
             curr_name = str(item.get("currency", "")).lower()
             if curr_name == target:
                 try:
-                    return Decimal(str(item.get("amount", "0.0")))
+                    return float(item.get("amount", 0.0))
                 except (ValueError, TypeError):
                     pass
 
@@ -226,23 +225,22 @@ async def calculate_next_progression_step(session, incoming_wager):
     global checkpointJuice, safetyCheckpoint, tinyPeanutSize, backupPeanut
     global safetyCheckpointtwo, last_observed, beat
 
-    currentWagerAmount = Decimal(str(incoming_wager))
-    checkpointJuice = Decimal(str(checkpointJuice))
-    forker = Decimal(str(forker))
-    safetyCheckpoint = Decimal(str(safetyCheckpoint))
-    safetyCheckpointtwo = Decimal(str(safetyCheckpointtwo))
-    backupPeanut = tinyPeanutSize
-    bob = Decimal(str(bob))
-    walletStash = Decimal(str(walletStash))
-    last_observed = Decimal(str(last_observed))
+    currentWagerAmount = float(incoming_wager)
+    checkpointJuice = float(checkpointJuice)
+    forker = float(forker)
+    safetyCheckpoint = float(safetyCheckpoint)
+    safetyCheckpointtwo = float(safetyCheckpointtwo)
+    backupPeanut = float(tinyPeanutSize)
+    bob = float(bob)
+    walletStash = float(walletStash)
+    last_observed = float(last_observed)
 
     if beat > 0:
         soulp = walletStash - last_observed
         souly = last_observed - walletStash
-        tol = Decimal('0.00000001')
         matches_wager = (
-            abs((soulp - currentWagerAmount)) <= tol
-            or abs((soulp + currentWagerAmount)) <= tol
+            math.isclose(soulp - currentWagerAmount, 0.0, abs_tol=1e-8)
+            or math.isclose(soulp + currentWagerAmount, 0.0, abs_tol=1e-8)
         )
         if soulp > 0:
             if matches_wager:
@@ -260,46 +258,46 @@ async def calculate_next_progression_step(session, incoming_wager):
                 sys.exit(1)
 
     if beat <= 0:
-        last_observed = walletStash
+        last_observed = float(walletStash)
 
-    ten_peanuts_val = tinyPeanutSize * Decimal('10')
+    ten_peanuts_val = tinyPeanutSize * 10.0
     dopey = safetyCheckpoint - ten_peanuts_val
     frack = walletStash + bob
     freak = frack - dopey
     if freak <= 0:
-        safetyCheckpoint = walletStash + bob
+        safetyCheckpoint = float(walletStash + bob)
         dopey = safetyCheckpoint - ten_peanuts_val
         frack = walletStash + bob
         freak = frack - dopey
 
-    if (freak - ((currentWagerAmount * Decimal('2')) + tinyPeanutSize)) <= 0:
+    if (freak - ((currentWagerAmount * 2.0) + tinyPeanutSize)) <= 0:
         currentWagerAmount = tinyPeanutSize
-        forker = frack
-        checkpointJuice = floor_to_step(frack, ten_peanuts_val)
-
-    if (((freak - ((currentWagerAmount * Decimal('4')) + tinyPeanutSize)) <= 0) and (frack >= (forker + ten_peanuts_val))):
-        currentWagerAmount = tinyPeanutSize
-        forker = frack
-        safetyCheckpoint = walletStash + bob
         dopey = safetyCheckpoint - ten_peanuts_val
         frack = walletStash + bob
         freak = frack - dopey
+        forker = float(frack)
         checkpointJuice = floor_to_step(frack, ten_peanuts_val)
 
-    if (currentWagerAmount > tinyPeanutSize) and (frack < (checkpointJuice - (currentWagerAmount * Decimal('4.9')))):
-        currentWagerAmount = currentWagerAmount * Decimal('2')
-        checkpointJuice = frack
+    if ((freak - ((currentWagerAmount * 4.0) + tinyPeanutSize)) <= 0) and (frack >= (forker + ten_peanuts_val)):
+        currentWagerAmount = tinyPeanutSize
+        safetyCheckpoint = float(walletStash + bob)
+        dopey = safetyCheckpoint - ten_peanuts_val
+        frack = walletStash + bob
+        freak = frack - dopey
+        forker = float(frack)
+        checkpointJuice = floor_to_step(frack, ten_peanuts_val)
 
     if (
-        ((currentWagerAmount <= tinyPeanutSize) and (frack > (checkpointJuice + (currentWagerAmount * Decimal('6.9')))))
-        or ((currentWagerAmount <= tinyPeanutSize) and (frack < (checkpointJuice - (currentWagerAmount * Decimal('2.9')))))
-        or ((currentWagerAmount > tinyPeanutSize) and (frack > (checkpointJuice + (currentWagerAmount * Decimal('4.9')))))
+        ((currentWagerAmount <= tinyPeanutSize) and (frack > (checkpointJuice + (currentWagerAmount * 6.9))))
+        or ((currentWagerAmount <= tinyPeanutSize) and (frack < (checkpointJuice - (currentWagerAmount * 2.9))))
+        or ((currentWagerAmount > tinyPeanutSize) and (frack > (checkpointJuice + (currentWagerAmount * 4.9))))
+        or ((currentWagerAmount > tinyPeanutSize) and (frack < (checkpointJuice - (currentWagerAmount * 4.9))))
     ):
-        currentWagerAmount = currentWagerAmount * Decimal('2')
-        checkpointJuice = frack
+        currentWagerAmount = float(currentWagerAmount * 2.0)
+        checkpointJuice = float(frack)
 
     beat += 1
-    currentWagerAmount = currentWagerAmount.quantize(Decimal('0.00000001'), rounding=ROUND_DOWN)
+    currentWagerAmount = math.floor(currentWagerAmount * 1e8) / 1e8
     return currentWagerAmount
 
 
@@ -323,36 +321,36 @@ async def initialize_bot_state_async(session):
 
     master_state = load_master_state()
     if master_state and "trueOriginalBalance" in master_state:
-        trueOriginalBalance = Decimal(str(master_state["trueOriginalBalance"]))
+        trueOriginalBalance = float(master_state["trueOriginalBalance"])
     else:
-        trueOriginalBalance = current_bal
+        trueOriginalBalance = float(current_bal)
         save_master_state(trueOriginalBalance)
 
     savedState = load_state()
 
-    startingPocketChange = current_bal
-    walletStash = current_bal
+    startingPocketChange = float(current_bal)
+    walletStash = float(current_bal)
 
-    calculated_tiny = startingPocketChange / Decimal('1000')
-    tinyPeanutSize = Decimal(str(savedState.get("tinyPeanutSize", calculated_tiny))) if savedState else calculated_tiny
-    backupPeanut = Decimal(str(savedState.get("backupPeanut", tinyPeanutSize))) if savedState else tinyPeanutSize
-    tenPeanuts = Decimal(str(savedState.get("tenPeanuts", tinyPeanutSize * Decimal('10')))) if savedState else (tinyPeanutSize * Decimal('10'))
+    calculated_tiny = startingPocketChange / 1000.0
+    tinyPeanutSize = float(savedState.get("tinyPeanutSize", calculated_tiny)) if savedState else calculated_tiny
+    backupPeanut = float(savedState.get("backupPeanut", tinyPeanutSize)) if savedState else tinyPeanutSize
+    tenPeanuts = float(savedState.get("tenPeanuts", tinyPeanutSize * 10.0)) if savedState else (tinyPeanutSize * 10.0)
 
-    previousWalletState = Decimal(str(savedState.get("previousWalletState", walletStash))) if savedState else walletStash
-    currentWagerAmount = Decimal(str(savedState.get("currentWagerAmount", backupPeanut))) if savedState else backupPeanut
-    previousWagerAmount = Decimal(str(savedState.get("previousWagerAmount", currentWagerAmount))) if savedState else currentWagerAmount
+    previousWalletState = float(savedState.get("previousWalletState", walletStash)) if savedState else walletStash
+    currentWagerAmount = float(savedState.get("currentWagerAmount", backupPeanut)) if savedState else backupPeanut
+    previousWagerAmount = float(savedState.get("previousWagerAmount", currentWagerAmount)) if savedState else currentWagerAmount
 
     default_chk = walletStash
-    chk_calc = floor_to_step(default_chk, tinyPeanutSize * Decimal('10'))
-    checkpointJuice = Decimal(str(savedState.get("checkpointJuice", chk_calc))) if savedState else chk_calc
-    wobbleFactor = Decimal(str(savedState.get("wobbleFactor", "1.0"))) if savedState else Decimal('1.0')
-    safetyCheckpoint = Decimal(str(savedState.get("safetyCheckpoint", chk_calc))) if savedState else chk_calc
-    safetyCheckpointtwo = Decimal(str(savedState.get("safetyCheckpointtwo", "999999999999999999999999999999999999.0"))) if savedState else Decimal('999999999999999999999999999999999999.0')
+    chk_calc = floor_to_step(default_chk, tinyPeanutSize * 10.0)
+    checkpointJuice = float(savedState.get("checkpointJuice", chk_calc)) if savedState else chk_calc
+    wobbleFactor = float(savedState.get("wobbleFactor", 1.0)) if savedState else 1.0
+    safetyCheckpoint = float(savedState.get("safetyCheckpoint", chk_calc)) if savedState else chk_calc
+    safetyCheckpointtwo = float(savedState.get("safetyCheckpointtwo", 1e36)) if savedState else 1e36
 
-    last_observed_balance = current_bal
-    forker = Decimal(str(savedState.get("forker", current_bal))) if savedState else current_bal
-    last_observed = Decimal(str(savedState.get("last_observed", current_bal))) if savedState else current_bal
-    bob = Decimal(str(savedState.get("bob", "0.0"))) if savedState else Decimal('0.0')
+    last_observed_balance = float(current_bal)
+    forker = float(savedState.get("forker", current_bal)) if savedState else float(current_bal)
+    last_observed = float(savedState.get("last_observed", current_bal)) if savedState else float(current_bal)
+    bob = float(savedState.get("bob", 0.0)) if savedState else 0.0
     last_balance_change_time = time.time()
 
     total_profit_init = walletStash - trueOriginalBalance
@@ -367,8 +365,9 @@ async def watchdog_loop(session):
             load_state()
             bal_check = await get_user_balance_async(session)
             if bal_check is not None:
-                if bal_check != walletStash:
-                    walletStash = bal_check
+                bal_float = float(bal_check)
+                if not math.isclose(bal_float, walletStash, abs_tol=1e-9):
+                    walletStash = bal_float
                     last_observed_balance = walletStash
                     last_balance_change_time = time.time()
                     print(f"[Watchdog] Balance updated: {walletStash:.8f}", flush=True)
@@ -410,15 +409,15 @@ async def run_betting_loop():
                 for k in ["amount", "balance", "value"]:
                     if k in user_bal_obj:
                         try:
-                            walletStash = Decimal(str(user_bal_obj[k]))
+                            walletStash = float(user_bal_obj[k])
                             break
                         except (ValueError, TypeError):
                             pass
             elif isinstance(user_bal_obj, (int, float, str)):
-                walletStash = Decimal(str(user_bal_obj))
+                walletStash = float(user_bal_obj)
             elif "balance" in bet_response:
                 try:
-                    walletStash = Decimal(str(bet_response["balance"]))
+                    walletStash = float(bet_response["balance"])
                 except (ValueError, TypeError):
                     pass
             last_observed_balance = walletStash
@@ -426,7 +425,7 @@ async def run_betting_loop():
             save_state()
 
         while True:
-            if walletStash >= Decimal('144.0'):
+            if walletStash >= 144.0:
                 total_profit = walletStash - trueOriginalBalance
                 print(f"\n[System] TARGET REACHED ({walletStash:.8f}). Total Cumulative Profit: {total_profit:+.8f}. Halting.", flush=True)
                 for f_path in [STATE_FILE, MASTER_STATE_FILE]:
@@ -440,8 +439,8 @@ async def run_betting_loop():
             current_balance = last_observed_balance
             bal_check = await get_user_balance_async(session)
 
-            if bal_check is not None and bal_check != current_balance:
-                walletStash = bal_check
+            if bal_check is not None and not math.isclose(float(bal_check), current_balance, abs_tol=1e-9):
+                walletStash = float(bal_check)
                 last_observed_balance = walletStash
                 last_balance_change_time = time.time()
 
@@ -473,15 +472,15 @@ async def run_betting_loop():
                         for k in ["amount", "balance", "value"]:
                             if k in user_bal_obj:
                                 try:
-                                    walletStash = Decimal(str(user_bal_obj[k]))
+                                    walletStash = float(user_bal_obj[k])
                                     break
                                 except (ValueError, TypeError):
                                     pass
                     elif isinstance(user_bal_obj, (int, float, str)):
-                        walletStash = Decimal(str(user_bal_obj))
+                        walletStash = float(user_bal_obj)
                     elif "balance" in bet_response:
                         try:
-                            walletStash = Decimal(str(bet_response["balance"]))
+                            walletStash = float(bet_response["balance"])
                         except (ValueError, TypeError):
                             pass
                     last_observed_balance = walletStash
