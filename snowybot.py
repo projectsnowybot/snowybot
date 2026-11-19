@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from decimal import Decimal, ROUND_DOWN
 import json
 import math
 import os
@@ -16,7 +17,7 @@ os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = (
     "--disable-speech-api"
 )
 
-from PyQt5.QtCore import QUrl, QTimer, Qt, QEventLoop
+from PyQt5.QtCore import QUrl, QTimer, QEventLoop
 from PyQt5.QtWidgets import QApplication, QMainWindow
 from PyQt5.QtWebEngineWidgets import QWebEngineView, QWebEngineProfile, QWebEnginePage
 
@@ -38,7 +39,7 @@ checkpointJuice = 0.0
 wobbleFactor = 1.0
 safetyCheckpoint = 0.0
 safetyCheckpointtwo = 0.0
-bob = 0
+bob = 0.0
 beat = 0
 last_observed = 0.0
 forker = 0.0
@@ -57,6 +58,13 @@ logged_in = False
 
 _active_window = None
 
+
+def floor_to_step(value: Decimal, step: Decimal) -> Decimal:
+    if step <= Decimal("0"):
+        return value
+    return Decimal(str(math.floor(value / step))) * step
+
+
 def load_state():
     if os.path.exists(STATE_FILE):
         try:
@@ -66,13 +74,14 @@ def load_state():
             print(f"[Error] Failed to load state file: {e}", flush=True)
     return None
 
+
 def save_state():
     bot_state = {
         "walletStash": round(float(walletStash), 8),
         "startingPocketChange": round(float(startingPocketChange), 8),
         "tinyPeanutSize": round(float(tinyPeanutSize), 8),
         "last_observed": round(float(last_observed), 8),
-        "bob": bob,
+        "bob": round(float(bob), 8),
         "forker": round(float(forker), 8),
         "backupPeanut": round(float(backupPeanut), 8),
         "tenPeanuts": round(float(tenPeanuts), 8),
@@ -91,6 +100,7 @@ def save_state():
     except Exception as e:
         print(f"[Error] Failed to save state file: {e}", flush=True)
 
+
 def load_master_state():
     if os.path.exists(MASTER_STATE_FILE):
         try:
@@ -100,6 +110,7 @@ def load_master_state():
             print(f"[Error] Failed to load master state file: {e}", flush=True)
     return None
 
+
 def save_master_state(balance):
     master_state = {"trueOriginalBalance": balance}
     try:
@@ -107,6 +118,7 @@ def save_master_state(balance):
             json.dump(master_state, f)
     except Exception as e:
         print(f"[Error] Failed to save master state file: {e}", flush=True)
+
 
 def get_balance():
     global _active_window
@@ -137,83 +149,117 @@ def get_balance():
     loop.exec_()
     return bal_result[0]
 
-def calculate_next_progression_step(incoming_wager):
-    global walletStash, currentWagerAmount, bob, beat, forker, last_observed, wobbleFactor, checkpointJuice, safetyCheckpoint, tinyPeanutSize, backupPeanut, safetyCheckpointtwo, startingPocketChange
 
-    currentWagerAmount = incoming_wager
-    walletStash = get_balance()
-    checkpointJuice = float(checkpointJuice)
-    forker = float(forker)
-    safetyCheckpoint = float(safetyCheckpoint)
-    safetyCheckpointtwo = float(safetyCheckpointtwo)
-    base_wager = currentWagerAmount
-    backupPeanut = tinyPeanutSize
-    beat = float(beat)
-    bob = float(bob)
-    
-    # Only run the external balance security check if we are past the initial setup beat
+def calculate_next_progression_step(incoming_wager):
+    global walletStash, currentWagerAmount, bob, beat, forker, last_observed
+    global wobbleFactor, checkpointJuice, safetyCheckpoint, tinyPeanutSize
+    global backupPeanut, safetyCheckpointtwo, startingPocketChange
+
+    wallet_dec = Decimal(str(get_balance()))
+    walletStash = float(wallet_dec)
+
+    wager_dec = Decimal(str(incoming_wager))
+    tiny_dec = Decimal(str(tinyPeanutSize))
+    ten_peanuts_val = tiny_dec * Decimal("10")
+
+    chk_dec = Decimal(str(checkpointJuice))
+    forker_dec = Decimal(str(forker))
+    safe1_dec = Decimal(str(safetyCheckpoint))
+    safe2_dec = Decimal(str(safetyCheckpointtwo))
+    bob_dec = Decimal(str(bob))
+    last_obs_dec = Decimal(str(last_observed))
+
+    backupPeanut = float(tiny_dec)
+
     if beat > 0:
-        soulp = (walletStash - last_observed)
-        souly = (last_observed - walletStash)
-        if (soulp>0):
-            if ((math.isclose(soulp - currentWagerAmount, 0.0, abs_tol=1e-8)) or (math.isclose(soulp + currentWagerAmount, 0.0, abs_tol=1e-8))):
-                last_observed = float(walletStash)
+        soulp = wallet_dec - last_obs_dec
+        souly = last_obs_dec - wallet_dec
+        tol = Decimal("0.00000001")
+        matches_wager = (
+            abs(soulp - wager_dec) <= tol
+            or abs(soulp + wager_dec) <= tol
+        )
+        if soulp > 0:
+            if matches_wager:
+                last_obs_dec = wallet_dec
             else:
-                print(f"[Security] External balance change detected! Delta: {soulp:+.8f} | Expected Wager: {currentWagerAmount:.8f}. balance obviously changed so using oringinal balance.")
-                bob = (bob + souly)
-                last_observed = float(walletStash)
-        elif (souly>0):
-            if ((math.isclose(soulp - currentWagerAmount, 0.0, abs_tol=1e-8)) or (math.isclose(soulp + currentWagerAmount, 0.0, abs_tol=1e-8))):
-                last_observed = float(walletStash)
+                print(
+                    f"[Security] External balance change detected! Delta: {soulp:+.8f} "
+                    f"| Expected Wager: {wager_dec:.8f}. Using original balance.",
+                    flush=True,
+                )
+                bob_dec = bob_dec + souly
+                last_obs_dec = wallet_dec
+        elif souly > 0:
+            if matches_wager:
+                last_obs_dec = wallet_dec
             else:
-                print(f"[Security] External balance change detected! Delta: {soulp:+.8f} | Expected Wager: {currentWagerAmount:.8f}. fuck off hacker.")
+                print(
+                    f"[Security] External balance change detected! Delta: {soulp:+.8f} "
+                    f"| Expected Wager: {wager_dec:.8f}. Halting.",
+                    flush=True,
+                )
+                bob = float(bob_dec)
+                last_observed = float(last_obs_dec)
                 save_state()
                 sys.exit(1)
 
     if beat <= 0:
-        last_observed = float(walletStash)
+        last_obs_dec = wallet_dec
 
-    dopey = float(safetyCheckpoint-(tinyPeanutSize*10))
-    frack = float(walletStash + bob) 
-    freak = float(frack - dopey)
-    if freak<=0:
-        safetyCheckpoint = float(walletStash + bob)
-        dopey = (safetyCheckpoint-(tinyPeanutSize*10))
-        frack = float(walletStash + bob) 
-        freak = float(frack - dopey)
+    dopey = safe1_dec - ten_peanuts_val
+    frack = wallet_dec + bob_dec
+    freak = frack - dopey
+    if freak <= 0:
+        safe1_dec = wallet_dec + bob_dec
+        dopey = safe1_dec - ten_peanuts_val
+        frack = wallet_dec + bob_dec
+        freak = frack - dopey
 
+    if (freak - ((wager_dec * Decimal("2")) + tiny_dec)) <= 0:
+        wager_dec = tiny_dec
+        forker_dec = frack
+        chk_dec = floor_to_step(frack, ten_peanuts_val)
 
-    if ((freak-((currentWagerAmount*2)+tinyPeanutSize))<=0):
-        currentWagerAmount = tinyPeanutSize
-        forker = float(freak)
-        checkpointJuice = float((math.floor(freak/(tinyPeanutSize * 10)))*(tinyPeanutSize * 10))
+    if ((freak - ((wager_dec * Decimal("4")) + tiny_dec)) <= 0) and (frack >= (forker_dec + ten_peanuts_val)):
+        wager_dec = tiny_dec
+        forker_dec = frack
+        safe1_dec = wallet_dec + bob_dec
+        dopey = safe1_dec - ten_peanuts_val
+        frack = wallet_dec + bob_dec
+        freak = frack - dopey
+        chk_dec = floor_to_step(frack, ten_peanuts_val)
 
-    if (((freak-((currentWagerAmount*4)+tinyPeanutSize))<=0) and (freak >= (forker+(tinyPeanutSize*10)))):
-        currentWagerAmount = tinyPeanutSize
-        forker = float(freak)
-        safetyCheckpoint = float(walletStash + bob)
-        dopey = (safetyCheckpoint-(tinyPeanutSize*10))
-        frack = float(walletStash + bob) 
-        freak = float(frack - dopey)
-        checkpointJuice = float((math.floor(freak/(tinyPeanutSize * 10)))*(tinyPeanutSize * 10))
-        
-    if ((currentWagerAmount > tinyPeanutSize) and (freak < (checkpointJuice - (currentWagerAmount * 4.9)))):
-        currentWagerAmount = (currentWagerAmount* 2)
-        checkpointJuice = float(freak)
+    if (wager_dec > tiny_dec) and (frack < (chk_dec - (wager_dec * Decimal("4.9")))):
+        wager_dec = wager_dec * Decimal("2")
+        chk_dec = frack
 
-    if (((currentWagerAmount <= tinyPeanutSize) and (freak > (checkpointJuice + (currentWagerAmount * 6.9)))) or 
-        ((currentWagerAmount <= tinyPeanutSize) and (freak < (checkpointJuice - (currentWagerAmount * 2.9)))) or 
-        ((currentWagerAmount > tinyPeanutSize) and (freak > (checkpointJuice + (currentWagerAmount * 4.9))))):
-        currentWagerAmount = (currentWagerAmount* 2)
-        checkpointJuice = float(freak)
+    if (
+        ((wager_dec <= tiny_dec) and (frack > (chk_dec + (wager_dec * Decimal("6.9")))))
+        or ((wager_dec <= tiny_dec) and (frack < (chk_dec - (wager_dec * Decimal("2.9")))))
+        or ((wager_dec > tiny_dec) and (frack > (chk_dec + (wager_dec * Decimal("4.9")))))
+    ):
+        wager_dec = wager_dec * Decimal("2")
+        chk_dec = frack
 
-    beat = (beat + 1)
-    currentWagerAmount = round(float(currentWagerAmount), 8)
-    return currentWagerAmount
+    beat += 1
+    wager_dec = wager_dec.quantize(Decimal("0.00000001"), rounding=ROUND_DOWN)
+
+    # Sync module-level state
+    currentWagerAmount = float(wager_dec)
+    checkpointJuice = float(chk_dec)
+    forker = float(forker_dec)
+    safetyCheckpoint = float(safe1_dec)
+    safetyCheckpointtwo = float(safe2_dec)
+    bob = float(bob_dec)
+    last_observed = float(last_obs_dec)
+
+    return wager_dec
 
 
 def log_bet_info(bet_amount, current_balance, total_profit):
     print(f"Bet: {bet_amount:.8f} | Balance: {current_balance:.8f} | Total Profit: {total_profit:+.8f}", flush=True)
+
 
 class SnowyBotWindow(QMainWindow):
     def __init__(self):
@@ -221,7 +267,7 @@ class SnowyBotWindow(QMainWindow):
         global _active_window
         _active_window = self
 
-        self.setWindowTitle("Snowy Bot - WolfBet Logic Engine (QtWebEngine)")
+        self.setWindowTitle("Snowy Bot - QtWebEngine")
         self.resize(1024, 768)
 
         self.watchdog_fail_count = 0
@@ -252,10 +298,10 @@ class SnowyBotWindow(QMainWindow):
         page = QWebEnginePage(profile, self)
         self.browser = QWebEngineView()
         self.browser.setPage(page)
-        
+
         self.is_loaded = False
         page.loadFinished.connect(self._handle_load_finished)
-        
+
         self.setCentralWidget(self.browser)
 
     def _handle_load_finished(self, ok):
@@ -270,7 +316,7 @@ class SnowyBotWindow(QMainWindow):
         global logged_in, has_placed_first_bet
         logged_in = False
         has_placed_first_bet = False
-        
+
         self.init_browser_engine(wipe_data=wipe_data)
 
         print("[System] Navigating to just-dice.com...", flush=True)
@@ -285,7 +331,7 @@ class SnowyBotWindow(QMainWindow):
         (function() {
             var closeBtn = document.querySelector('a.fancybox-item.fancybox-close');
             if (closeBtn) { closeBtn.click(); }
-            
+
             if (document.getElementById('myuser')) { return 'ALREADY_VISIBLE'; }
 
             var elements = Array.from(document.querySelectorAll('a, button, span, div'));
@@ -294,9 +340,9 @@ class SnowyBotWindow(QMainWindow):
                 return txt === 'account' || txt === 'login' || txt.includes('account') || txt.includes('login');
             });
 
-            if (target) { 
-                target.click(); 
-                return 'CLICKED'; 
+            if (target) {
+                target.click();
+                return 'CLICKED';
             }
             return 'NOT_FOUND';
         })();
@@ -312,7 +358,9 @@ class SnowyBotWindow(QMainWindow):
         global username, password, code_2fa
         print("[System] Submitting authentication payload to DOM...", flush=True)
 
-        tfa_val = code_2fa.strip() if code_2fa else ""
+        u_js = json.dumps(username)
+        p_js = json.dumps(password)
+        tfa_js = json.dumps(code_2fa.strip() if code_2fa else "")
 
         js_login = f"""
         (function() {{
@@ -334,17 +382,17 @@ class SnowyBotWindow(QMainWindow):
                 return 'MISSING_FIELDS';
             }}
 
-            uEl.value = "{username}";
+            uEl.value = {u_js};
             uEl.dispatchEvent(new Event('input', {{ bubbles: true }}));
             uEl.dispatchEvent(new Event('change', {{ bubbles: true }}));
 
-            pEl.value = "{password}";
+            pEl.value = {p_js};
             pEl.dispatchEvent(new Event('input', {{ bubbles: true }}));
             pEl.dispatchEvent(new Event('change', {{ bubbles: true }}));
 
-            var tfa = "{tfa_val}";
-            if (cEl && tfa !== "") {{ 
-                cEl.value = tfa; 
+            var tfa = {tfa_js};
+            if (cEl && tfa !== "") {{
+                cEl.value = tfa;
                 cEl.dispatchEvent(new Event('input', {{ bubbles: true }}));
                 cEl.dispatchEvent(new Event('change', {{ bubbles: true }}));
             }}
@@ -357,7 +405,7 @@ class SnowyBotWindow(QMainWindow):
 
     def _after_login_submitted(self, status):
         print(f"[System] Credentials action: {status}", flush=True)
-        if status == 'MISSING_FIELDS':
+        if status == "MISSING_FIELDS":
             self.login_fail_count += 1
             if self.login_fail_count >= 2:
                 print("[System] Form elements still missing. Reloading webview...", flush=True)
@@ -369,7 +417,7 @@ class SnowyBotWindow(QMainWindow):
                 print(f"[System] Form elements not ready yet (Attempt {self.login_fail_count}/2). Retrying submission in 5 seconds...", flush=True)
                 QTimer.singleShot(5000, self.submit_login_credentials)
         else:
-            self.login_fail_count = 0  # Reset on successful submission
+            self.login_fail_count = 0
             print("[System] Waiting 10 seconds for post-login stabilization...", flush=True)
             QTimer.singleShot(10000, self.init_bot_state)
 
@@ -378,7 +426,9 @@ class SnowyBotWindow(QMainWindow):
         global walletStash, previousWalletState, safetyCheckpoint
         global currentWagerAmount, previousWagerAmount, beat
         global checkpointJuice, wobbleFactor, safetyCheckpointtwo
-        global last_observed_balance, last_balance_change_time, logged_in, last_bet_timestamp, last_activity_timestamp, watchdog_threshold, has_placed_first_bet
+        global bob, last_observed, forker
+        global last_observed_balance, last_balance_change_time, logged_in
+        global last_bet_timestamp, last_activity_timestamp, watchdog_threshold, has_placed_first_bet
 
         current_bal = get_balance()
 
@@ -410,7 +460,7 @@ class SnowyBotWindow(QMainWindow):
         tenPeanuts = float(savedState.get("tenPeanuts", tinyPeanutSize * 10)) if savedState else tinyPeanutSize * 10
 
         previousWalletState = float(savedState.get("previousWalletState", walletStash)) if savedState else walletStash
-        
+
         currentWagerAmount = (
             float(savedState.get("currentWagerAmount", tinyPeanutSize)) if savedState else backupPeanut
         )
@@ -425,7 +475,7 @@ class SnowyBotWindow(QMainWindow):
             else float((math.floor(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
         )
         wobbleFactor = float(savedState.get("wobbleFactor", 1.0)) if savedState else 1.0
-        
+
         safetyCheckpoint = (
             float(savedState.get("safetyCheckpoint", float(((math.floor(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10)) - (tinyPeanutSize * 10))))
             if savedState
@@ -435,22 +485,11 @@ class SnowyBotWindow(QMainWindow):
             float(savedState.get("safetyCheckpointtwo", float((math.floor(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))))
             if savedState
             else float((math.floor(default_chk / (tinyPeanutSize * 10))) * (tinyPeanutSize * 10))
-        ) 
-        bob = (
-            float(savedState.get("bob", 0))
-            if savedState
-            else 0
         )
-        last_observed = (
-            float(savedState.get("last_observed", float(walletStash)))
-            if savedState
-            else float(walletStash)
-        )
-        forker = (
-            float(savedState.get("forker", float(walletStash)))
-            if savedState
-            else float(walletStash)
-        )
+        bob = float(savedState.get("bob", 0)) if savedState else 0.0
+        last_observed = float(savedState.get("last_observed", float(walletStash))) if savedState else float(walletStash)
+        forker = float(savedState.get("forker", float(walletStash))) if savedState else float(walletStash)
+
         last_observed_balance = current_bal
         current_time = time.time()
         last_balance_change_time = current_time
@@ -461,7 +500,11 @@ class SnowyBotWindow(QMainWindow):
         logged_in = True
 
         total_profit_init = walletStash - trueOriginalBalance
-        print(f"[System] Login verified! Balance: {walletStash:.8f} | Master Original: {trueOriginalBalance:.8f} | Total Profit: {total_profit_init:+.8f}", flush=True)
+        print(
+            f"[System] Login verified! Balance: {walletStash:.8f} | Master Original: {trueOriginalBalance:.8f} "
+            f"| Total Profit: {total_profit_init:+.8f}",
+            flush=True,
+        )
         print("[Watchdog] Dynamic 15-second activity & betting stall watchdog is active and monitoring.", flush=True)
         self.timer.start(1000)
 
@@ -487,11 +530,10 @@ class SnowyBotWindow(QMainWindow):
             return
 
         current_time = time.time()
-
-        balance_changed = (walletStash!=last_observed_balance)
+        balance_changed = walletStash != last_observed_balance
 
         if walletStash > 0 and balance_changed:
-            self.watchdog_fail_count = 0  
+            self.watchdog_fail_count = 0
             last_balance_change_time = current_time
             last_observed_balance = walletStash
             last_activity_timestamp = current_time
@@ -499,13 +541,17 @@ class SnowyBotWindow(QMainWindow):
         elapsed_stagnation = current_time - last_balance_change_time
 
         if elapsed_stagnation >= watchdog_threshold:
-            print(f"[Watchdog] Balance has stalled, triggering cookie wipe and relogin sequence...", flush=True)
+            print("[Watchdog] Balance has stalled, triggering cookie wipe and relogin sequence...", flush=True)
             self.trigger_watchdog_refresh()
             return
 
         if walletStash >= (startingPocketChange * 3):
             total_profit = walletStash - trueOriginalBalance
-            print(f"\n[System] TARGET REACHED ({walletStash:.8f}). Total Cumulative Profit: {total_profit:+.8f}. Halting execution.", flush=True)
+            print(
+                f"\n[System] TARGET REACHED ({walletStash:.8f}). Total Cumulative Profit: {total_profit:+.8f}. "
+                f"Halting execution.",
+                flush=True,
+            )
             for f_path in [STATE_FILE, MASTER_STATE_FILE]:
                 if os.path.exists(f_path):
                     try:
@@ -537,7 +583,7 @@ class SnowyBotWindow(QMainWindow):
             }})();
             """
             self.browser.page().runJavaScript(js_place_bet)
-            previousWagerAmount = computedNextBet
+            previousWagerAmount = float(computedNextBet)
             previousWalletState = walletStash
             last_bet_timestamp = time.time()
             watchdog_threshold = 15.0
@@ -545,21 +591,28 @@ class SnowyBotWindow(QMainWindow):
 
     def trigger_watchdog_refresh(self):
         global logged_in, has_placed_first_bet, watchdog_threshold, beat
+        global last_balance_change_time, last_observed_balance
+
         beat = 0
         self.timer.stop()
         logged_in = False
-        self.is_loaded = False 
+        self.is_loaded = False
         self.watchdog_fail_count += 1
 
+        now = time.time()
+        last_balance_change_time = now
+        last_observed_balance = 0.0
+
         print("[Watchdog] Clearing cookies, site data, and restarting full login sequence...", flush=True)
-        
+
         self.browser.page().profile().cookieStore().deleteAllCookies()
         self.browser.page().profile().clearHttpCache()
 
         has_placed_first_bet = False
         watchdog_threshold = min(watchdog_threshold + 5.0, 30.0)
-        
+
         self.start_full_login_sequence(wipe_data=True)
+
 
 def main():
     global username, password, code_2fa
@@ -579,6 +632,7 @@ def main():
     window = SnowyBotWindow()
 
     sys.exit(app.exec_())
+
 
 if __name__ == "__main__":
     main()
