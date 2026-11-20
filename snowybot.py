@@ -73,6 +73,24 @@ def load_state():
             print(f"[Error] Failed to load state file: {e}", flush=True)
     return None
 
+def safe_float(value, default=0.0) -> float:
+    default_f = float(default)
+    if value is None:
+        return default_f
+    try:
+        parsed = float(value)
+        if math.isnan(parsed) or math.isinf(parsed):
+            return default_f
+        return float(parsed)
+    except (ValueError, TypeError):
+        return default_f
+
+def floor_to_step(value: float, step: float) -> float:
+    val_f = safe_float(value, 0.0)
+    step_f = safe_float(step, 0.0)
+    if step_f <= float(0.0):
+        return float(val_f)
+    return float(round(float(math.floor(val_f / step_f)) * step_f, 8))
 
 def save_state():
     bot_state = {
@@ -198,46 +216,31 @@ def calculate_next_progression_step(incoming_wager):
     if beat <= 0:
         last_observed = float(walletStash)
 
-    ten_peanuts_val = tinyPeanutSize * 10.0
-    dopey = safetyCheckpoint - ten_peanuts_val
-    frack = walletStash + bob
-    freak = frack - dopey
-    if freak <= 0:
-        safetyCheckpoint = float(walletStash + bob)
-        dopey = safetyCheckpoint - ten_peanuts_val
-        frack = walletStash + bob
-        freak = frack - dopey
+    ten_peanuts_val = float(tinyPeanutSize * float(10.0))
+    forty_peanuts = float(tinyPeanutSize * float(40.0))
+    frack = float(walletStash + bob)
 
-    if (freak - ((currentWagerAmount * 2.0) + tinyPeanutSize)) <= 0:
-        currentWagerAmount = tinyPeanutSize
-        dopey = safetyCheckpoint - ten_peanuts_val
-        frack = walletStash + bob
-        freak = frack - dopey
-        forker = float(frack)
-        checkpointJuice = floor_to_step(frack, ten_peanuts_val)
+    if (frack<(checkpointJuice-(tinyPeanutSize*23.9))):
+        currentWagerAmount = float(tinyPeanutSize)
+        checkpointJuice = float(floor_to_step(frack, ten_peanuts_val))
 
-    if ((freak - ((currentWagerAmount * 4.0) + tinyPeanutSize)) <= 0) and (frack >= (forker + ten_peanuts_val)):
-        currentWagerAmount = tinyPeanutSize
-        safetyCheckpoint = float(walletStash + bob)
-        dopey = safetyCheckpoint - ten_peanuts_val
-        frack = walletStash + bob
-        freak = frack - dopey
+    if ((frack>(checkpointJuice+(tinyPeanutSize*31.9))) and (frack >= (forker + forty_peanuts))):
+        currentWagerAmount = float(tinyPeanutSize)
         forker = float(frack)
-        checkpointJuice = floor_to_step(frack, ten_peanuts_val)
+        checkpointJuice = float(floor_to_step(frack, ten_peanuts_val))
 
     if (
-        ((currentWagerAmount <= tinyPeanutSize) and (frack > (checkpointJuice + (currentWagerAmount * 6.9))))
-        or ((currentWagerAmount <= tinyPeanutSize) and (frack < (checkpointJuice - (currentWagerAmount * 2.9))))
-        or ((currentWagerAmount > tinyPeanutSize) and (frack > (checkpointJuice + (currentWagerAmount * 4.9))))
-        or ((currentWagerAmount > tinyPeanutSize) and (frack < (checkpointJuice - (currentWagerAmount * 4.9))))
+        ((currentWagerAmount <= tinyPeanutSize) and (frack > float(checkpointJuice + (currentWagerAmount * float(6.9)))))
+        or ((currentWagerAmount <= tinyPeanutSize) and (frack < float(checkpointJuice - (currentWagerAmount * float(2.9)))))
+        or ((currentWagerAmount > tinyPeanutSize) and (frack > float(checkpointJuice + (currentWagerAmount * float(4.9)))))
+        or ((currentWagerAmount > tinyPeanutSize) and (frack < float(checkpointJuice - (currentWagerAmount * float(4.9)))))
     ):
-        currentWagerAmount = float(currentWagerAmount * 2.0)
+        currentWagerAmount = float(currentWagerAmount * float(2.0))
         checkpointJuice = float(frack)
 
     beat += 1
-    currentWagerAmount = math.floor(currentWagerAmount * 1e8) / 1e8
-    return currentWagerAmount
-
+    currentWagerAmount = float(math.floor(float(currentWagerAmount * float(1e8))) / float(1e8))
+    return float(currentWagerAmount)
 
 def log_bet_info(bet_amount, current_balance, total_profit):
     print(f"Bet: {bet_amount:.8f} | Balance: {current_balance:.8f} | Total Profit: {total_profit:+.8f}", flush=True)
