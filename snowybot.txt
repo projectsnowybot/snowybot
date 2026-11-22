@@ -7,7 +7,7 @@
     apiToken: "", // Prompted automatically on start, or set via setBearerToken("...")
     currency: "usdt", // Prompted automatically on start, or set via setCurrency("...")
     targetBalance: 144.0,
-    targetBetsPerSec: 15, // ~66.7ms interval; lower via setRate(3) if WolfBet returns 429s
+    targetBetsPerSec: 3, // ~333ms interval; adjust live with setRate(...)
     autoRotateInterval: 0, // Rotate seed every X bets (0 = disabled)
     initialClientSeed: "", // Leave blank to auto-generate
     watchdogIntervalMs: 2000,
@@ -45,6 +45,7 @@
   let lastBalanceChangeTime = Date.now() / 1000;
   let activeClientSeed = "";
   let totalBetsPlaced = 0;
+  let consecutive429s = 0;
   let isRunning = false;
   let isPlacingBet = false;
   let lastStateSaveMs = 0;
@@ -132,7 +133,7 @@
   }
 
   function getCycleIntervalMs() {
-    const rate = Math.max(1, safeFloat(CONFIG.targetBetsPerSec, 15));
+    const rate = Math.max(0.1, safeFloat(CONFIG.targetBetsPerSec, 3));
     return 1000 / rate;
   }
 
@@ -321,6 +322,7 @@
       );
       applyStateObject(fresh);
       beat = 0;
+      consecutive429s = 0;
       lastStateSaveMs = performance.now();
       console.log(
         `[System] Cleared old state and reinstated fresh state (${STATE_KEY}, ${MASTER_STATE_KEY}).`
@@ -542,8 +544,8 @@
     return null;
   }
 
-  async function calculateNextProgressionStep(incomingWager, gen) {
-    currentWagerAmount = safeFloat(incomingWager, 0.0);
+  function computeProgressionStep(incomingWager, gen, advanceBeat = true) {
+    let nextWager = safeFloat(incomingWager, 0.0);
     checkpointJuice = safeFloat(checkpointJuice, 0.0);
     forker = safeFloat(forker, 0.0);
     safetyCheckpoint = safeFloat(safetyCheckpoint, 0.0);
@@ -558,15 +560,15 @@
       const soulp = walletStash - lastObserved;
       const souly = lastObserved - walletStash;
       const matchesWager =
-        isClose(soulp - currentWagerAmount, 0.0, 1e-8) ||
-        isClose(soulp + currentWagerAmount, 0.0, 1e-8);
+        isClose(soulp - nextWager, 0.0, 1e-8) ||
+        isClose(soulp + nextWager, 0.0, 1e-8);
 
       if (soulp > 0.0) {
         if (matchesWager) {
           lastObserved = walletStash;
         } else {
           console.log(
-            `[Security] External balance change detected! Delta: ${soulp >= 0 ? "+" : ""}${fmt8(soulp)} | Expected Wager: ${fmt8(currentWagerAmount)}. Using original balance.`
+            `[Security] External balance change detected! Delta: ${soulp >= 0 ? "+" : ""}${fmt8(soulp)} | Expected Wager: ${fmt8(nextWager)}. Using original balance.`
           );
           bob = bob + souly;
           lastObserved = walletStash;
@@ -576,13 +578,13 @@
           lastObserved = walletStash;
         } else {
           console.error(
-            `[Security] External balance change detected! Delta: ${soulp >= 0 ? "+" : ""}${fmt8(soulp)} | Expected Wager: ${fmt8(currentWagerAmount)}. Halting.`
+            `[Security] External balance change detected! Delta: ${soulp >= 0 ? "+" : ""}${fmt8(soulp)} | Expected Wager: ${fmt8(nextWager)}. Halting.`
           );
           saveState(true);
           if (gen === runGeneration) {
             stopBotInternal(false);
           }
-          return clampMinBet(currentWagerAmount);
+          return clampMinBet(nextWager);
         }
       }
     }
@@ -596,29 +598,31 @@
     const frack = walletStash + bob;
 
     if (frack < checkpointJuice - tinyPeanutSize * 23.9) {
-      currentWagerAmount = tinyPeanutSize;
+      nextWager = tinyPeanutSize;
       checkpointJuice = floorToStep(frack, tenPeanutsVal);
     }
 
     if (frack > checkpointJuice + tinyPeanutSize * 31.9 && frack >= forker + fortyPeanuts) {
-      currentWagerAmount = tinyPeanutSize;
+      nextWager = tinyPeanutSize;
       forker = frack;
       checkpointJuice = floorToStep(frack, tenPeanutsVal);
     }
 
     if (
-      (currentWagerAmount <= tinyPeanutSize && frack > checkpointJuice + currentWagerAmount * 6.9) ||
-      (currentWagerAmount <= tinyPeanutSize && frack < checkpointJuice - currentWagerAmount * 2.9) ||
-      (currentWagerAmount > tinyPeanutSize && frack > checkpointJuice + currentWagerAmount * 4.9) ||
-      (currentWagerAmount > tinyPeanutSize && frack < checkpointJuice - currentWagerAmount * 4.9)
+      (nextWager <= tinyPeanutSize && frack > checkpointJuice + nextWager * 6.9) ||
+      (nextWager <= tinyPeanutSize && frack < checkpointJuice - nextWager * 2.9) ||
+      (nextWager > tinyPeanutSize && frack > checkpointJuice + nextWager * 4.9) ||
+      (nextWager > tinyPeanutSize && frack < checkpointJuice - nextWager * 4.9)
     ) {
-      currentWagerAmount = currentWagerAmount * 2.0;
+      nextWager = nextWager * 2.0;
       checkpointJuice = frack;
     }
 
-    beat += 1;
-    currentWagerAmount = clampMinBet(currentWagerAmount);
-    return currentWagerAmount;
+    if (advanceBeat) {
+      beat += 1;
+      currentWagerAmount = clampMinBet(nextWager);
+    }
+    return clampMinBet(nextWager);
   }
 
   function logBetInfo(betAmount, currentBalance, totalProfit) {
@@ -683,6 +687,7 @@
     forker = savedState ? safeFloat(savedState.forker, currentBalF) : currentBalF;
     lastObserved = savedState ? safeFloat(savedState.last_observed, currentBalF) : currentBalF;
     bob = savedState ? safeFloat(savedState.bob, 0.0) : 0.0;
+    consecutive429s = 0;
     lastBalanceChangeTime = Date.now() / 1000;
 
     const totalProfitInit = walletStash - trueOriginalBalance;
@@ -704,12 +709,19 @@
       bet_value: "49.5",
     };
 
-    previousWagerAmount = safeAmount;
     const betResponse = await apiRequest("bet/place", "POST", betPayload);
-    if (!betResponse || betResponse.__rateLimited) {
+    if (!betResponse) {
+      return false;
+    }
+    if (betResponse.__rateLimited) {
+      consecutive429s += 1;
       return false;
     }
 
+    consecutive429s = 0;
+    previousWagerAmount = safeAmount;
+    currentWagerAmount = safeAmount;
+    beat += 1;
     totalBetsPlaced += 1;
 
     const parsedBal = extractBalanceFromBetResponse(betResponse);
@@ -769,7 +781,7 @@
 
     const intervalMs = getCycleIntervalMs();
     console.log(
-      `[System] Entering high-speed loop targeting ${CONFIG.targetBetsPerSec} bets/sec (~${intervalMs.toFixed(1)}ms interval)...`
+      `[System] Entering loop targeting ${CONFIG.targetBetsPerSec} bets/sec (~${intervalMs.toFixed(1)}ms interval)...`
     );
 
     while (isRunning && gen === runGeneration) {
@@ -801,7 +813,7 @@
           await setClientSeed(randSeed);
         }
 
-        const computedNextBet = await calculateNextProgressionStep(previousWagerAmount, gen);
+        const computedNextBet = computeProgressionStep(previousWagerAmount, gen, false);
         if (!isRunning || gen !== runGeneration) break;
         const totalProfit = walletStash - trueOriginalBalance;
         logBetInfo(computedNextBet, walletStash, totalProfit);
@@ -813,7 +825,8 @@
       if (!isRunning || gen !== runGeneration) break;
 
       if (!placedOk) {
-        await sleep(200);
+        const backoffMs = Math.min(1500, 300 + consecutive429s * 150);
+        await sleep(backoffMs);
         continue;
       }
 
@@ -895,7 +908,7 @@
   mountControlButtons();
   console.log("=== SnowyBot WolfBet DevConsole Edition ===");
   console.log(
-    'Helpers: startWolfBot() | stopWolfBot() | setBearerToken("...") | setCurrency("btc") | setRate(15) | rotateSeedNow() | deleteStateFiles()'
+    'Helpers: startWolfBot() | stopWolfBot() | setBearerToken("...") | setCurrency("btc") | setRate(3) | rotateSeedNow() | deleteStateFiles()'
   );
   startBotInternal();
 })();
