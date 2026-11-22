@@ -192,7 +192,7 @@
       baseBalance !== null ? baseBalance : (walletStash || lastObservedBalance || 0.0),
       0.0
     );
-    const tiny = bal / 1000.0;
+    const tiny = bal / 144000.0;
     const chk = floorToStep(bal, tiny * 10.0);
     const initialWager = clampWager(tiny);
 
@@ -616,25 +616,24 @@
     const fortyPeanuts = tinyPeanutSize * 40.0;
     const frack = walletStash + bob;
 
-    if (frack < checkpointJuice - tinyPeanutSize * 23.9) {
+    if (frack > (safetyCheckpoint + (tinyPeanutSize * wobbleFactor))) {
       nextWager = tinyPeanutSize;
-      checkpointJuice = floorToStep(frack, tenPeanutsVal);
+      wobbleFactor = parseFloat(1.0)
+      checkpointJuice = parseFloat(floorToStep(frack, tenPeanutsVal));
+      safetyCheckpoint = parseFloat(floorToStep(frack, tenPeanutsVal));
     }
-
-    if (frack > checkpointJuice + tinyPeanutSize * 31.9 && frack >= forker + fortyPeanuts) {
-      nextWager = tinyPeanutSize;
-      forker = frack;
-      checkpointJuice = floorToStep(frack, tenPeanutsVal);
+    if (nextWager > tinyPeanutSize && frack < checkpointJuice - (nextWager * 4.9)){
+      wobbleFactor = parseFloat(0.0)
+      nextWager = nextWager * 2.0;
+      checkpointJuice = parseFloat(frack);
     }
-
     if (
-      (nextWager <= tinyPeanutSize && frack > checkpointJuice + nextWager * 6.9) ||
-      (nextWager <= tinyPeanutSize && frack < checkpointJuice - nextWager * 2.9) ||
-      (nextWager > tinyPeanutSize && frack > checkpointJuice + nextWager * 4.9) ||
-      (nextWager > tinyPeanutSize && frack < checkpointJuice - nextWager * 4.9)
+      (nextWager <= tinyPeanutSize && frack > checkpointJuice + (nextWager * 6.9)) ||
+      (nextWager <= tinyPeanutSize && frack < checkpointJuice - (nextWager * 2.9)) ||
+      (nextWager > tinyPeanutSize && frack > checkpointJuice + (nextWager * 4.9))
     ) {
       nextWager = nextWager * 2.0;
-      checkpointJuice = frack;
+      checkpointJuice = parseFloat(frack);
     }
 
     if (advanceBeat) {
@@ -682,7 +681,7 @@
     startingPocketChange = currentBalF;
     walletStash = currentBalF;
 
-    const calculatedTiny = startingPocketChange / 1000.0;
+    const calculatedTiny = startingPocketChange / 144000.0;
     tinyPeanutSize = savedState ? safeFloat(savedState.tinyPeanutSize, calculatedTiny) : calculatedTiny;
     backupPeanut = savedState ? safeFloat(savedState.backupPeanut, tinyPeanutSize) : tinyPeanutSize;
     tenPeanuts = savedState ? safeFloat(savedState.tenPeanuts, tinyPeanutSize * 10.0) : tinyPeanutSize * 10.0;
