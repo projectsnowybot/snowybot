@@ -7,7 +7,8 @@
     apiToken: "", // Prompted automatically on start, or set via setBearerToken("...")
     currency: "usdt", // Prompted automatically on start, or set via setCurrency("...")
     targetBalance: 144.0,
-    targetBetsPerSec: 2, // ~500ms interval; adjust live with setRate(...)
+    targetBetsPerSec: 1.5, // ~667ms interval; adjust live with setRate(...)
+    maxWagerCap: 0, // 0 = uncapped; set e.g. 0.000001 to cap wager size if larger bets 429
     autoRotateInterval: 0, // Rotate seed every X bets (0 = disabled)
     initialClientSeed: "", // Leave blank to auto-generate
     watchdogIntervalMs: 2000,
@@ -44,6 +45,7 @@
   let lastObservedBalance = 0.0;
   let lastBalanceChangeTime = Date.now() / 1000;
   let activeClientSeed = "";
+  let lastAppliedClientSeed = "";
   let totalBetsPlaced = 0;
   let consecutive429s = 0;
   let isRunning = false;
@@ -75,10 +77,16 @@
     return safeFloat(value, fallback).toFixed(8);
   }
 
-  function clampMinBet(amount) {
-    const val = safeFloat(amount, MIN_BET);
-    const floored = Math.floor(val * 1e8) / 1e8;
-    return floored < MIN_BET ? MIN_BET : floored;
+  function clampWager(amount) {
+    let val = safeFloat(amount, MIN_BET);
+    let floored = Math.floor(val * 1e8) / 1e8;
+    if (floored < MIN_BET) floored = MIN_BET;
+    const cap = safeFloat(CONFIG.maxWagerCap, 0.0);
+    if (cap > 0 && floored > cap) {
+      floored = Math.floor(cap * 1e8) / 1e8;
+      if (floored < MIN_BET) floored = MIN_BET;
+    }
+    return floored;
   }
 
   function storageWrite(key, valueStr) {
@@ -133,7 +141,7 @@
   }
 
   function getCycleIntervalMs() {
-    const rate = Math.max(0.1, safeFloat(CONFIG.targetBetsPerSec, 2));
+    const rate = Math.max(0.1, safeFloat(CONFIG.targetBetsPerSec, 1.5));
     return 1000 / rate;
   }
 
@@ -186,7 +194,7 @@
     );
     const tiny = bal / 1000.0;
     const chk = floorToStep(bal, tiny * 10.0);
-    const initialWager = clampMinBet(tiny);
+    const initialWager = clampWager(tiny);
 
     return {
       walletStash: num8(bal),
@@ -420,7 +428,7 @@
     syncToggleButtonUI();
   }
 
-  async function apiRequest(endpoint, method = "GET", payload = null, maxRetries = CONFIG.maxRetries) {
+  async function apiRequest(endpoint, method = "GET", payload = null, maxRetries = CONFIG.maxRetries, silentErrors = false) {
     const headers = {
       "Content-Type": "application/json",
       Accept: "application/json",
@@ -453,19 +461,24 @@
           return text ? JSON.parse(text) : {};
         }
 
-        // Return immediately on 429 so we don't fire back-to-back retries inside a single bet cycle
         if (resp.status === 429) {
           return { __rateLimited: true, status: 429, raw: text };
         }
 
-        if (method === "POST") {
+        if (resp.status === 400 && silentErrors) {
+          return { __badRequest: true, status: 400, raw: text };
+        }
+
+        if (method === "POST" && !silentErrors) {
           console.error(`\n[API Error ${resp.status}] Server response: ${text}`);
         }
         if (attempt < maxRetries - 1) {
           await sleep(CONFIG.retryBaseDelayMs * Math.pow(2.0, attempt));
         }
       } catch (err) {
-        console.error(`\n[API Exception] ${err}`);
+        if (!silentErrors) {
+          console.error(`\n[API Exception] ${err}`);
+        }
         if (attempt < maxRetries - 1) {
           await sleep(CONFIG.retryBaseDelayMs * Math.pow(2.0, attempt));
         }
@@ -474,14 +487,23 @@
     return null;
   }
 
-  async function setClientSeed(seedString) {
+  async function setClientSeed(seedString, force = false) {
     if (!seedString) return false;
-    const response = await apiRequest("user/seed/refresh", "POST", { client_seed: seedString }, 2);
-    if (response !== null && !response.__rateLimited) {
+    if (!force && seedString === lastAppliedClientSeed) {
+      return true;
+    }
+    const response = await apiRequest(
+      "user/seed/refresh",
+      "POST",
+      { client_seed: seedString },
+      1,
+      true
+    );
+    if (response && !response.__rateLimited && !response.__badRequest) {
+      lastAppliedClientSeed = seedString;
       console.log(`\n[Provably Fair] Client seed successfully updated to: ${seedString}`);
       return true;
     }
-    console.warn("\n[Warning] Failed to update client seed.");
     return false;
   }
 
@@ -581,7 +603,7 @@
           if (gen === runGeneration) {
             stopBotInternal(false);
           }
-          return clampMinBet(nextWager);
+          return clampWager(nextWager);
         }
       }
     }
@@ -617,9 +639,9 @@
 
     if (advanceBeat) {
       beat += 1;
-      currentWagerAmount = clampMinBet(nextWager);
+      currentWagerAmount = clampWager(nextWager);
     }
-    return clampMinBet(nextWager);
+    return clampWager(nextWager);
   }
 
   function logBetInfo(betAmount, currentBalance, totalProfit) {
@@ -643,8 +665,8 @@
 
     const currentBalF = safeFloat(currentBal, 0.0);
 
-    if (activeClientSeed) {
-      await setClientSeed(activeClientSeed);
+    if (activeClientSeed && activeClientSeed !== lastAppliedClientSeed) {
+      await setClientSeed(activeClientSeed, false);
     }
 
     const masterState = loadMasterState();
@@ -666,10 +688,10 @@
     tenPeanuts = savedState ? safeFloat(savedState.tenPeanuts, tinyPeanutSize * 10.0) : tinyPeanutSize * 10.0;
 
     previousWalletState = savedState ? safeFloat(savedState.previousWalletState, walletStash) : walletStash;
-    currentWagerAmount = clampMinBet(
+    currentWagerAmount = clampWager(
       savedState ? safeFloat(savedState.currentWagerAmount, backupPeanut) : backupPeanut
     );
-    previousWagerAmount = clampMinBet(
+    previousWagerAmount = clampWager(
       savedState ? safeFloat(savedState.previousWagerAmount, currentWagerAmount) : currentWagerAmount
     );
 
@@ -696,7 +718,7 @@
   }
 
   async function placeDiceBet(amount) {
-    const safeAmount = clampMinBet(amount);
+    const safeAmount = clampWager(amount);
     const betPayload = {
       currency: String(CONFIG.currency).toLowerCase(),
       game: "dice",
@@ -808,7 +830,7 @@
           console.log(
             `\n[Auto-Rotate] Reached ${totalBetsPlaced} bets. Generating new random seed...`
           );
-          await setClientSeed(randSeed);
+          await setClientSeed(randSeed, true);
         }
 
         const computedNextBet = computeProgressionStep(previousWagerAmount, gen, false);
@@ -877,6 +899,17 @@
     );
   };
 
+  window.setMaxWager = (capAmount) => {
+    const n = Number(capAmount);
+    if (!Number.isFinite(n) || n < 0) return;
+    CONFIG.maxWagerCap = n;
+    console.log(
+      n > 0
+        ? `[System] Max wager cap set to ${fmt8(n)}.`
+        : "[System] Max wager cap removed (uncapped)."
+    );
+  };
+
   window.setBearerToken = (token) => {
     CONFIG.apiToken = String(token || "").trim().replace(/^Bearer\s+/i, "").trim();
     console.log(
@@ -895,7 +928,7 @@
 
   window.rotateSeedNow = async (customSeed = "") => {
     const nextSeed = customSeed && customSeed.trim() ? customSeed.trim() : generateRandomSeed();
-    const ok = await setClientSeed(nextSeed);
+    const ok = await setClientSeed(nextSeed, true);
     if (ok) activeClientSeed = nextSeed;
   };
 
@@ -906,7 +939,7 @@
   mountControlButtons();
   console.log("=== SnowyBot WolfBet DevConsole Edition ===");
   console.log(
-    'Helpers: startWolfBot() | stopWolfBot() | setBearerToken("...") | setCurrency("btc") | setRate(2) | rotateSeedNow() | deleteStateFiles()'
+    'Helpers: startWolfBot() | stopWolfBot() | setBearerToken("...") | setCurrency("btc") | setRate(1.5) | setMaxWager(0) | rotateSeedNow() | deleteStateFiles()'
   );
   startBotInternal();
 })();
