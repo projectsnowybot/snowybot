@@ -5,6 +5,7 @@ import os
 import sys
 import time
 import pwinput
+from decimal import Decimal, ROUND_FLOOR
 
 # Enforce software rendering, disable GPU/hardware acceleration, and mute audio
 os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = (
@@ -57,11 +58,13 @@ logged_in = False
 
 _active_window = None
 
-
-def floor_to_step(value: float, step: float) -> float:
-    if step <= 0.0:
-        return value
-    return round(float(math.floor(value / step)) * step, 8)
+def floor_sigfig(val) -> float:
+    d = Decimal(str(val)) / Decimal('144000')
+    if d <= 0:
+        return 0.0
+    exp = Decimal(f'1e{d.adjusted()}')
+    exact_sig = (d / exp).to_integral_value(rounding=ROUND_FLOOR) * exp
+    return float(exact_sig.quantize(Decimal('0.00000001'), rounding=ROUND_FLOOR))
 
 
 def load_state():
@@ -178,7 +181,8 @@ def calculate_next_progression_step(incoming_wager):
     forker = float(forker)
     safetyCheckpoint = float(safetyCheckpoint)
     safetyCheckpointtwo = float(safetyCheckpointtwo)
-    backupPeanut = float(tinyPeanutSize)
+    wobbleFactor = float(wobbleFactor)
+    tinyPeanutSize = float(tinyPeanutSize)
     bob = float(bob)
     last_observed = float(last_observed)
 
@@ -216,30 +220,29 @@ def calculate_next_progression_step(incoming_wager):
     if beat <= 0:
         last_observed = float(walletStash)
 
-    ten_peanuts_val = float(tinyPeanutSize * float(10.0))
-    forty_peanuts = float(tinyPeanutSize * float(40.0))
+    ten_peanuts_val = round((tinyPeanutSize * 10.0), 8)
+    forty_peanuts = round((tinyPeanutSize * 40.0), 8)
     frack = float(walletStash + bob)
 
-    if (frack<(checkpointJuice-(tinyPeanutSize*23.9))):
-        currentWagerAmount = float(tinyPeanutSize)
+    if (frack > (safetyCheckpoint + (ten_peanuts_val * wobbleFactor))):
+        currentWagerAmount = tinyPeanutSize
+        wobbleFactor = 1.0
         checkpointJuice = float(floor_to_step(frack, ten_peanuts_val))
+        safetyCheckpoint = float(floor_to_step(frack, ten_peanuts_val))
 
-    if ((frack>(checkpointJuice+(tinyPeanutSize*31.9))) and (frack >= (forker + forty_peanuts))):
-        currentWagerAmount = float(tinyPeanutSize)
-        forker = float(frack)
-        checkpointJuice = float(floor_to_step(frack, ten_peanuts_val))
+    if (currentWagerAmount > tinyPeanutSize and frack < checkpointJuice - (currentWagerAmount * 4.9)):
+        wobbleFactor = 0.0
+        currentWagerAmount = round((currentWagerAmount * 2.0), 8)
+        checkpointJuice = float(frack)
 
-    if (
-        ((currentWagerAmount <= tinyPeanutSize) and (frack > float(checkpointJuice + (currentWagerAmount * float(6.9)))))
-        or ((currentWagerAmount <= tinyPeanutSize) and (frack < float(checkpointJuice - (currentWagerAmount * float(2.9)))))
-        or ((currentWagerAmount > tinyPeanutSize) and (frack > float(checkpointJuice + (currentWagerAmount * float(4.9)))))
-        or ((currentWagerAmount > tinyPeanutSize) and (frack < float(checkpointJuice - (currentWagerAmount * float(4.9)))))
-    ):
-        currentWagerAmount = float(currentWagerAmount * float(2.0))
+    if ((currentWagerAmount <= tinyPeanutSize and frack > checkpointJuice + (currentWagerAmount * 6.9)) or 
+        (currentWagerAmount <= tinyPeanutSize and frack < checkpointJuice - (currentWagerAmount * 2.9)) or 
+        (currentWagerAmount > tinyPeanutSize and frack > checkpointJuice + (currentWagerAmount * 4.9))):
+        currentWagerAmount = round((currentWagerAmount * 2.0), 8)
         checkpointJuice = float(frack)
 
     beat += 1
-    currentWagerAmount = float(math.floor(float(currentWagerAmount * float(1e8))) / float(1e8))
+    currentWagerAmount = float(currentWagerAmount)
     return float(currentWagerAmount)
 
 def log_bet_info(bet_amount, current_balance, total_profit):
@@ -406,6 +409,7 @@ class SnowyBotWindow(QMainWindow):
             print("[System] Waiting 10 seconds for post-login stabilization...", flush=True)
             QTimer.singleShot(10000, self.init_bot_state)
 
+
     def init_bot_state(self):
         global trueOriginalBalance, startingPocketChange, tinyPeanutSize, backupPeanut, tenPeanuts
         global walletStash, previousWalletState, safetyCheckpoint
@@ -434,15 +438,19 @@ class SnowyBotWindow(QMainWindow):
         startingPocketChange = float(current_bal)
         walletStash = float(current_bal)
 
-        calculated_tiny = float(startingPocketChange / 320.0)
+        
+        calculated_tiny = floor_sigfig(startingPocketChange)
 
         tinyPeanutSize = (
             float(savedState.get("tinyPeanutSize", calculated_tiny))
             if savedState
             else calculated_tiny
         )
+
+
+
         backupPeanut = tinyPeanutSize
-        tenPeanuts = float(savedState.get("tenPeanuts", tinyPeanutSize * 10.0)) if savedState else tinyPeanutSize * 10.0
+        tenPeanuts = float(savedState.get("tenPeanuts", (round((tinyPeanutSize * 10.0), 8)))) if savedState else (round((tinyPeanutSize * 10.0), 8))
 
         previousWalletState = float(savedState.get("previousWalletState", walletStash)) if savedState else walletStash
 
@@ -453,15 +461,15 @@ class SnowyBotWindow(QMainWindow):
             float(savedState.get("previousWagerAmount", currentWagerAmount)) if savedState else currentWagerAmount
         )
 
-        default_chk = walletStash
-        base_floor = floor_to_step(default_chk, tinyPeanutSize * 10.0)
+        default_chk = float(walletStash)
+        base_floor = floor_to_step(default_chk, (round((tinyPeanutSize * 10.0), 8)))
         checkpointJuice = float(savedState.get("checkpointJuice", base_floor)) if savedState else base_floor
         wobbleFactor = float(savedState.get("wobbleFactor", 1.0)) if savedState else 1.0
 
         safetyCheckpoint = (
-            float(savedState.get("safetyCheckpoint", base_floor - (tinyPeanutSize * 10.0)))
+            float(savedState.get("safetyCheckpoint", base_floor))
             if savedState
-            else base_floor - (tinyPeanutSize * 10.0)
+            else base_floor
         )
         safetyCheckpointtwo = float(savedState.get("safetyCheckpointtwo", base_floor)) if savedState else base_floor
         bob = float(savedState.get("bob", 0.0)) if savedState else 0.0
