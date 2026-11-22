@@ -7,13 +7,13 @@
     apiToken: "", // Prompted automatically on start, or set via setBearerToken("...")
     currency: "usdt", // Prompted automatically on start, or set via setCurrency("...")
     targetBalance: 144.0,
-    targetBetsPerSec: 3, // ~333ms interval; adjust live with setRate(...)
+    targetBetsPerSec: 2, // ~500ms interval; adjust live with setRate(...)
     autoRotateInterval: 0, // Rotate seed every X bets (0 = disabled)
     initialClientSeed: "", // Leave blank to auto-generate
     watchdogIntervalMs: 2000,
     watchdogThresholdSec: 10.0,
-    maxRetries: 3,
-    retryBaseDelayMs: 120,
+    maxRetries: 2,
+    retryBaseDelayMs: 150,
   };
 
   const MIN_BET = 1e-8;
@@ -133,7 +133,7 @@
   }
 
   function getCycleIntervalMs() {
-    const rate = Math.max(0.1, safeFloat(CONFIG.targetBetsPerSec, 3));
+    const rate = Math.max(0.1, safeFloat(CONFIG.targetBetsPerSec, 2));
     return 1000 / rate;
   }
 
@@ -453,11 +453,8 @@
           return text ? JSON.parse(text) : {};
         }
 
+        // Return immediately on 429 so we don't fire back-to-back retries inside a single bet cycle
         if (resp.status === 429) {
-          if (attempt < maxRetries - 1) {
-            await sleep(CONFIG.retryBaseDelayMs * (attempt + 1));
-            continue;
-          }
           return { __rateLimited: true, status: 429, raw: text };
         }
 
@@ -749,11 +746,12 @@
 
       const nowSec = Date.now() / 1000;
       if (nowSec - lastBalanceChangeTime > CONFIG.watchdogThresholdSec) {
+        const prevStash = walletStash;
         loadState();
         const balCheck = await getUserBalance();
         if (balCheck !== null && isRunning && gen === runGeneration && !isPlacingBet) {
           const balFloat = safeFloat(balCheck, walletStash);
-          if (!isClose(balFloat, walletStash, 1e-9)) {
+          if (!isClose(balFloat, prevStash, 1e-9)) {
             walletStash = balFloat;
             lastObservedBalance = walletStash;
             lastBalanceChangeTime = Date.now() / 1000;
@@ -825,7 +823,7 @@
       if (!isRunning || gen !== runGeneration) break;
 
       if (!placedOk) {
-        const backoffMs = Math.min(1500, 300 + consecutive429s * 150);
+        const backoffMs = Math.min(3000, 750 + consecutive429s * 350);
         await sleep(backoffMs);
         continue;
       }
@@ -908,7 +906,7 @@
   mountControlButtons();
   console.log("=== SnowyBot WolfBet DevConsole Edition ===");
   console.log(
-    'Helpers: startWolfBot() | stopWolfBot() | setBearerToken("...") | setCurrency("btc") | setRate(3) | rotateSeedNow() | deleteStateFiles()'
+    'Helpers: startWolfBot() | stopWolfBot() | setBearerToken("...") | setCurrency("btc") | setRate(2) | rotateSeedNow() | deleteStateFiles()'
   );
   startBotInternal();
 })();
