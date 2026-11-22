@@ -1,0 +1,901 @@
+(() => {
+  // =========================================================================
+  // CONFIGURATION
+  // =========================================================================
+  const CONFIG = {
+    apiBaseUrl: "https://wolfbet.com/api/v1",
+    apiToken: "", // Prompted automatically on start, or set via setBearerToken("...")
+    currency: "usdt", // Prompted automatically on start, or set via setCurrency("...")
+    targetBalance: 144.0,
+    targetBetsPerSec: 15, // ~66.7ms interval; lower via setRate(3) if WolfBet returns 429s
+    autoRotateInterval: 0, // Rotate seed every X bets (0 = disabled)
+    initialClientSeed: "", // Leave blank to auto-generate
+    watchdogIntervalMs: 2000,
+    watchdogThresholdSec: 10.0,
+    maxRetries: 3,
+    retryBaseDelayMs: 120,
+  };
+
+  const MIN_BET = 1e-8;
+  const STATE_KEY = "wolfbot_state_v1";
+  const MASTER_STATE_KEY = "wolfbot_master_state_v1";
+  const DELETE_BTN_ID = "wolfbot-delete-state-btn";
+  const TOGGLE_BTN_ID = "wolfbot-toggle-btn";
+
+  // Financial & progression state
+  let trueOriginalBalance = 0.0;
+  let startingPocketChange = 0.0;
+  let tinyPeanutSize = 0.0;
+  let backupPeanut = 0.0;
+  let tenPeanuts = 0.0;
+  let walletStash = 0.0;
+  let bob = 0.0;
+  let previousWalletState = 0.0;
+  let currentWagerAmount = 0.0;
+  let previousWagerAmount = 0.0;
+  let checkpointJuice = 0.0;
+  let wobbleFactor = 1.0;
+  let safetyCheckpoint = 0.0;
+  let safetyCheckpointtwo = 0.0;
+  let lastObserved = 0.0;
+  let beat = 0;
+  let forker = 0.0;
+
+  let lastObservedBalance = 0.0;
+  let lastBalanceChangeTime = Date.now() / 1000;
+  let activeClientSeed = "";
+  let totalBetsPlaced = 0;
+  let isRunning = false;
+  let isPlacingBet = false;
+  let lastStateSaveMs = 0;
+  let runGeneration = 0;
+  let startupPromptsDone = false;
+
+  // Fallback store when localStorage is unavailable or blocked in Firefox
+  const memoryStorageFallback = {};
+  let localStorageAvailable = true;
+  let warnedStorageUnavailable = false;
+
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  function safeFloat(value, fallback = 0.0) {
+    const fb = Number(fallback);
+    const cleanFb = Number.isFinite(fb) ? fb : 0.0;
+    if (value === null || value === undefined || value === "") return cleanFb;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : cleanFb;
+  }
+
+  function num8(value, fallback = 0.0) {
+    return Number(safeFloat(value, fallback).toFixed(8));
+  }
+
+  function fmt8(value, fallback = 0.0) {
+    return safeFloat(value, fallback).toFixed(8);
+  }
+
+  function clampMinBet(amount) {
+    const val = safeFloat(amount, MIN_BET);
+    const floored = Math.floor(val * 1e8) / 1e8;
+    return floored < MIN_BET ? MIN_BET : floored;
+  }
+
+  function storageWrite(key, valueStr) {
+    if (localStorageAvailable) {
+      try {
+        window.localStorage.setItem(key, valueStr);
+        memoryStorageFallback[key] = valueStr;
+        return true;
+      } catch (e) {
+        localStorageAvailable = false;
+        memoryStorageFallback[key] = valueStr;
+        if (!warnedStorageUnavailable) {
+          warnedStorageUnavailable = true;
+          console.warn(
+            "[Storage] localStorage unavailable; using in-memory fallback for this session.",
+            e && e.name ? `${e.name}: ${e.message}` : e
+          );
+        }
+        return true;
+      }
+    }
+    memoryStorageFallback[key] = valueStr;
+    return true;
+  }
+
+  function storageRead(key) {
+    if (localStorageAvailable) {
+      try {
+        const val = window.localStorage.getItem(key);
+        if (val !== null) {
+          memoryStorageFallback[key] = val;
+          return val;
+        }
+      } catch (e) {
+        localStorageAvailable = false;
+      }
+    }
+    return Object.prototype.hasOwnProperty.call(memoryStorageFallback, key)
+      ? memoryStorageFallback[key]
+      : null;
+  }
+
+  function storageRemove(key) {
+    delete memoryStorageFallback[key];
+    if (localStorageAvailable) {
+      try {
+        window.localStorage.removeItem(key);
+      } catch (e) {
+        localStorageAvailable = false;
+      }
+    }
+  }
+
+  function getCycleIntervalMs() {
+    const rate = Math.max(1, safeFloat(CONFIG.targetBetsPerSec, 15));
+    return 1000 / rate;
+  }
+
+  function promptForStartupInputs() {
+    if (startupPromptsDone) return;
+    startupPromptsDone = true;
+
+    if (!CONFIG.apiToken || !CONFIG.apiToken.trim()) {
+      const enteredToken = window.prompt(
+        "Enter your WolfBet Bearer Token (leave blank if using browser session cookies):"
+      );
+      if (enteredToken && enteredToken.trim()) {
+        CONFIG.apiToken = enteredToken.trim().replace(/^Bearer\s+/i, "").trim();
+      }
+    }
+
+    const enteredCurrency = window.prompt(
+      `Enter currency / coin symbol [default: ${CONFIG.currency}]:`,
+      CONFIG.currency
+    );
+    if (enteredCurrency && enteredCurrency.trim()) {
+      CONFIG.currency = enteredCurrency.trim().toLowerCase();
+    }
+  }
+
+  function floorToStep(value, step) {
+    const valF = safeFloat(value, 0.0);
+    const stepF = safeFloat(step, 0.0);
+    if (stepF <= 0.0) return valF;
+    return num8(Math.floor(valF / stepF) * stepF, 0.0);
+  }
+
+  function isClose(a, b, tol = 1e-9) {
+    return Math.abs(safeFloat(a, 0.0) - safeFloat(b, 0.0)) <= tol;
+  }
+
+  function generateRandomSeed(length = 16) {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    let out = "";
+    for (let i = 0; i < length; i++) {
+      out += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return out;
+  }
+
+  function buildFreshState(baseBalance = null) {
+    const bal = safeFloat(
+      baseBalance !== null ? baseBalance : (walletStash || lastObservedBalance || 0.0),
+      0.0
+    );
+    const tiny = bal / 1000.0;
+    const chk = floorToStep(bal, tiny * 10.0);
+    const initialWager = clampMinBet(tiny);
+
+    return {
+      walletStash: num8(bal),
+      startingPocketChange: num8(bal),
+      last_observed: num8(bal),
+      forker: num8(bal),
+      bob: 0.0,
+      tinyPeanutSize: num8(tiny),
+      backupPeanut: num8(tiny),
+      tenPeanuts: num8(tiny * 10.0),
+      previousWalletState: num8(bal),
+      currentWagerAmount: num8(initialWager),
+      previousWagerAmount: num8(initialWager),
+      checkpointJuice: num8(chk),
+      wobbleFactor: safeFloat(wobbleFactor, 1.0),
+      safetyCheckpoint: num8(chk),
+      safetyCheckpointtwo: 1e36,
+      last_seen_timestamp: Date.now() / 1000,
+    };
+  }
+
+  function applyStateObject(data) {
+    if (!data || typeof data !== "object") return;
+    walletStash = safeFloat(data.walletStash, walletStash);
+    forker = safeFloat(data.forker, forker);
+    bob = safeFloat(data.bob, bob);
+    startingPocketChange = safeFloat(data.startingPocketChange, startingPocketChange);
+    tinyPeanutSize = safeFloat(data.tinyPeanutSize, tinyPeanutSize);
+    backupPeanut = safeFloat(data.backupPeanut, backupPeanut);
+    tenPeanuts = safeFloat(data.tenPeanuts, tenPeanuts);
+    previousWalletState = safeFloat(data.previousWalletState, previousWalletState);
+    currentWagerAmount = safeFloat(data.currentWagerAmount, currentWagerAmount);
+    previousWagerAmount = safeFloat(data.previousWagerAmount, previousWagerAmount);
+    checkpointJuice = safeFloat(data.checkpointJuice, checkpointJuice);
+    wobbleFactor = safeFloat(data.wobbleFactor, wobbleFactor);
+    safetyCheckpoint = safeFloat(data.safetyCheckpoint, safetyCheckpoint);
+    safetyCheckpointtwo = safeFloat(data.safetyCheckpointtwo, safetyCheckpointtwo);
+    lastObserved = safeFloat(data.last_observed, lastObserved);
+  }
+
+  function loadState() {
+    try {
+      const raw = storageRead(STATE_KEY);
+      if (!raw) {
+        const fresh = buildFreshState();
+        storageWrite(STATE_KEY, JSON.stringify(fresh));
+        applyStateObject(fresh);
+        return fresh;
+      }
+      const data = JSON.parse(raw);
+      applyStateObject(data);
+      return data;
+    } catch (e) {
+      const fresh = buildFreshState();
+      storageWrite(STATE_KEY, JSON.stringify(fresh));
+      applyStateObject(fresh);
+      return fresh;
+    }
+  }
+
+  function saveState(force = false) {
+    if (!isRunning && !force) return;
+
+    const nowMs = performance.now();
+    if (!force && nowMs - lastStateSaveMs < 1000) {
+      return;
+    }
+
+    const botState = {
+      walletStash: num8(walletStash),
+      startingPocketChange: num8(startingPocketChange),
+      last_observed: num8(lastObserved),
+      forker: num8(forker),
+      bob: num8(bob),
+      tinyPeanutSize: num8(tinyPeanutSize),
+      backupPeanut: num8(backupPeanut),
+      tenPeanuts: num8(tenPeanuts),
+      previousWalletState: num8(previousWalletState),
+      currentWagerAmount: num8(currentWagerAmount),
+      previousWagerAmount: num8(previousWagerAmount),
+      checkpointJuice: num8(checkpointJuice),
+      wobbleFactor: safeFloat(wobbleFactor, 1.0),
+      safetyCheckpoint: num8(safetyCheckpoint),
+      safetyCheckpointtwo: safeFloat(safetyCheckpointtwo, 1e36),
+      last_seen_timestamp: Date.now() / 1000,
+    };
+
+    try {
+      const serialized = JSON.stringify(botState);
+      if (!storageWrite(STATE_KEY, serialized)) {
+        throw new Error("State storage write returned false");
+      }
+      lastStateSaveMs = nowMs;
+    } catch (e) {
+      console.error(
+        "[Error] Failed to save state:",
+        e && e.name ? e.name : "",
+        e && e.message ? e.message : e
+      );
+    }
+  }
+
+  function loadMasterState() {
+    try {
+      const raw = storageRead(MASTER_STATE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      console.error("[Error] Failed to load master state:", e);
+      return null;
+    }
+  }
+
+  function saveMasterState(balance) {
+    try {
+      storageWrite(
+        MASTER_STATE_KEY,
+        JSON.stringify({ trueOriginalBalance: num8(balance) })
+      );
+    } catch (e) {
+      console.error("[Error] Failed to save master state:", e);
+    }
+  }
+
+  function clearSavedStates(reinstateFresh = true) {
+    storageRemove(STATE_KEY);
+    storageRemove(MASTER_STATE_KEY);
+    if (reinstateFresh) {
+      const fresh = buildFreshState();
+      storageWrite(STATE_KEY, JSON.stringify(fresh));
+      storageWrite(
+        MASTER_STATE_KEY,
+        JSON.stringify({ trueOriginalBalance: num8(fresh.walletStash) })
+      );
+      applyStateObject(fresh);
+      beat = 0;
+      lastStateSaveMs = performance.now();
+      console.log(
+        `[System] Cleared old state and reinstated fresh state (${STATE_KEY}, ${MASTER_STATE_KEY}).`
+      );
+    } else {
+      console.log(`[System] Deleted saved state keys (${STATE_KEY}, ${MASTER_STATE_KEY}).`);
+    }
+  }
+
+  function syncToggleButtonUI() {
+    const toggleBtn = document.getElementById(TOGGLE_BTN_ID);
+    if (!toggleBtn) return;
+
+    if (isRunning) {
+      toggleBtn.textContent = "Stop Bot";
+      toggleBtn.style.backgroundColor = "#d97706";
+      toggleBtn.style.borderColor = "#fde68a";
+    } else {
+      toggleBtn.textContent = "Start Bot";
+      toggleBtn.style.backgroundColor = "#15803d";
+      toggleBtn.style.borderColor = "#bbf7d0";
+    }
+  }
+
+  function mountControlButtons() {
+    const existingToggle = document.getElementById(TOGGLE_BTN_ID);
+    if (existingToggle) existingToggle.remove();
+
+    const existingDelete = document.getElementById(DELETE_BTN_ID);
+    if (existingDelete) existingDelete.remove();
+
+    if (!document.body) return;
+
+    const toggleBtn = document.createElement("button");
+    toggleBtn.id = TOGGLE_BTN_ID;
+    toggleBtn.type = "button";
+    toggleBtn.style.cssText = [
+      "position: fixed",
+      "bottom: 62px",
+      "right: 16px",
+      "z-index: 2147483647",
+      "padding: 10px 14px",
+      "color: #ffffff",
+      "border: 1px solid #fde68a",
+      "border-radius: 6px",
+      "font-family: system-ui, -apple-system, sans-serif",
+      "font-size: 13px",
+      "font-weight: 600",
+      "cursor: pointer",
+      "box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35)",
+    ].join(";");
+
+    toggleBtn.addEventListener("click", () => {
+      if (isRunning) {
+        stopBotInternal();
+      } else {
+        startBotInternal();
+      }
+    });
+
+    const delBtn = document.createElement("button");
+    delBtn.id = DELETE_BTN_ID;
+    delBtn.type = "button";
+    delBtn.textContent = "Delete State Files";
+    delBtn.style.cssText = [
+      "position: fixed",
+      "bottom: 16px",
+      "right: 16px",
+      "z-index: 2147483647",
+      "padding: 10px 14px",
+      "background-color: #b91c1c",
+      "color: #ffffff",
+      "border: 1px solid #fecaca",
+      "border-radius: 6px",
+      "font-family: system-ui, -apple-system, sans-serif",
+      "font-size: 13px",
+      "font-weight: 600",
+      "cursor: pointer",
+      "box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35)",
+    ].join(";");
+
+    delBtn.addEventListener("click", () => {
+      clearSavedStates(true);
+      const originalText = "Delete State Files";
+      delBtn.textContent = "Fresh State Reinstated!";
+      delBtn.style.backgroundColor = "#15803d";
+      setTimeout(() => {
+        delBtn.textContent = originalText;
+        delBtn.style.backgroundColor = "#b91c1c";
+      }, 1500);
+    });
+
+    document.body.appendChild(toggleBtn);
+    document.body.appendChild(delBtn);
+    syncToggleButtonUI();
+  }
+
+  async function apiRequest(endpoint, method = "GET", payload = null, maxRetries = CONFIG.maxRetries) {
+    const headers = {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    };
+    if (CONFIG.apiToken && CONFIG.apiToken.trim()) {
+      headers["Authorization"] = `Bearer ${CONFIG.apiToken.trim()}`;
+    }
+
+    const url = `${CONFIG.apiBaseUrl}/${endpoint}`;
+
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 5000);
+
+        const options = {
+          method,
+          headers,
+          signal: controller.signal,
+        };
+        if (method === "POST" && payload !== null) {
+          options.body = JSON.stringify(payload);
+        }
+
+        const resp = await fetch(url, options);
+        clearTimeout(timer);
+        const text = await resp.text();
+
+        if (resp.ok) {
+          return text ? JSON.parse(text) : {};
+        }
+
+        if (resp.status === 429) {
+          if (attempt < maxRetries - 1) {
+            await sleep(CONFIG.retryBaseDelayMs * (attempt + 1));
+            continue;
+          }
+          return { __rateLimited: true, status: 429, raw: text };
+        }
+
+        if (method === "POST") {
+          console.error(`\n[API Error ${resp.status}] Server response: ${text}`);
+        }
+        if (attempt < maxRetries - 1) {
+          await sleep(CONFIG.retryBaseDelayMs * Math.pow(2.0, attempt));
+        }
+      } catch (err) {
+        console.error(`\n[API Exception] ${err}`);
+        if (attempt < maxRetries - 1) {
+          await sleep(CONFIG.retryBaseDelayMs * Math.pow(2.0, attempt));
+        }
+      }
+    }
+    return null;
+  }
+
+  async function setClientSeed(seedString) {
+    if (!seedString) return false;
+    const response = await apiRequest("user/seed/refresh", "POST", { client_seed: seedString }, 2);
+    if (response !== null && !response.__rateLimited) {
+      console.log(`\n[Provably Fair] Client seed successfully updated to: ${seedString}`);
+      return true;
+    }
+    console.warn("\n[Warning] Failed to update client seed.");
+    return false;
+  }
+
+  async function getUserBalance() {
+    const data = await apiRequest("user/balances", "GET", null, 2);
+    if (!data || data.__rateLimited) return null;
+
+    const target = String(CONFIG.currency).toLowerCase();
+    let balancesList = [];
+
+    if (Array.isArray(data)) {
+      balancesList = data;
+    } else if (data && typeof data === "object") {
+      if (Array.isArray(data.balances)) {
+        balancesList = data.balances;
+      } else {
+        for (const v of Object.values(data)) {
+          if (Array.isArray(v)) {
+            balancesList = v;
+            break;
+          }
+        }
+      }
+    }
+
+    for (const item of balancesList) {
+      if (item && typeof item === "object") {
+        const currName = String(item.currency || "").toLowerCase();
+        if (currName === target) {
+          const amt = Number(item.amount ?? 0.0);
+          if (Number.isFinite(amt)) return amt;
+        }
+      }
+    }
+    return null;
+  }
+
+  function extractBalanceFromBetResponse(betResponse) {
+    if (!betResponse || typeof betResponse !== "object" || !("bet" in betResponse)) {
+      return null;
+    }
+    const userBalObj = betResponse.user_balance;
+    if (userBalObj && typeof userBalObj === "object") {
+      for (const k of ["amount", "balance", "value"]) {
+        if (k in userBalObj) {
+          const val = Number(userBalObj[k]);
+          if (Number.isFinite(val)) return val;
+        }
+      }
+    } else if (typeof userBalObj === "number" || typeof userBalObj === "string") {
+      const val = Number(userBalObj);
+      if (Number.isFinite(val)) return val;
+    } else if ("balance" in betResponse) {
+      const val = Number(betResponse.balance);
+      if (Number.isFinite(val)) return val;
+    }
+    return null;
+  }
+
+  async function calculateNextProgressionStep(incomingWager, gen) {
+    currentWagerAmount = safeFloat(incomingWager, 0.0);
+    checkpointJuice = safeFloat(checkpointJuice, 0.0);
+    forker = safeFloat(forker, 0.0);
+    safetyCheckpoint = safeFloat(safetyCheckpoint, 0.0);
+    safetyCheckpointtwo = safeFloat(safetyCheckpointtwo, 1e36);
+    backupPeanut = safeFloat(tinyPeanutSize, 0.0);
+    wobbleFactor = safeFloat(wobbleFactor, 1.0);
+    bob = safeFloat(bob, 0.0);
+    walletStash = safeFloat(walletStash, 0.0);
+    lastObserved = safeFloat(lastObserved, 0.0);
+
+    if (beat > 0) {
+      const soulp = walletStash - lastObserved;
+      const souly = lastObserved - walletStash;
+      const matchesWager =
+        isClose(soulp - currentWagerAmount, 0.0, 1e-8) ||
+        isClose(soulp + currentWagerAmount, 0.0, 1e-8);
+
+      if (soulp > 0.0) {
+        if (matchesWager) {
+          lastObserved = walletStash;
+        } else {
+          console.log(
+            `[Security] External balance change detected! Delta: ${soulp >= 0 ? "+" : ""}${fmt8(soulp)} | Expected Wager: ${fmt8(currentWagerAmount)}. Using original balance.`
+          );
+          bob = bob + souly;
+          lastObserved = walletStash;
+        }
+      } else if (souly > 0.0) {
+        if (matchesWager) {
+          lastObserved = walletStash;
+        } else {
+          console.error(
+            `[Security] External balance change detected! Delta: ${soulp >= 0 ? "+" : ""}${fmt8(soulp)} | Expected Wager: ${fmt8(currentWagerAmount)}. Halting.`
+          );
+          saveState(true);
+          if (gen === runGeneration) {
+            stopBotInternal(false);
+          }
+          return clampMinBet(currentWagerAmount);
+        }
+      }
+    }
+
+    if (beat <= 0) {
+      lastObserved = walletStash;
+    }
+
+    const tenPeanutsVal = tinyPeanutSize * 10.0;
+    const fortyPeanuts = tinyPeanutSize * 40.0;
+    const frack = walletStash + bob;
+
+    if (frack < checkpointJuice - tinyPeanutSize * 23.9) {
+      currentWagerAmount = tinyPeanutSize;
+      checkpointJuice = floorToStep(frack, tenPeanutsVal);
+    }
+
+    if (frack > checkpointJuice + tinyPeanutSize * 31.9 && frack >= forker + fortyPeanuts) {
+      currentWagerAmount = tinyPeanutSize;
+      forker = frack;
+      checkpointJuice = floorToStep(frack, tenPeanutsVal);
+    }
+
+    if (
+      (currentWagerAmount <= tinyPeanutSize && frack > checkpointJuice + currentWagerAmount * 6.9) ||
+      (currentWagerAmount <= tinyPeanutSize && frack < checkpointJuice - currentWagerAmount * 2.9) ||
+      (currentWagerAmount > tinyPeanutSize && frack > checkpointJuice + currentWagerAmount * 4.9) ||
+      (currentWagerAmount > tinyPeanutSize && frack < checkpointJuice - currentWagerAmount * 4.9)
+    ) {
+      currentWagerAmount = currentWagerAmount * 2.0;
+      checkpointJuice = frack;
+    }
+
+    beat += 1;
+    currentWagerAmount = clampMinBet(currentWagerAmount);
+    return currentWagerAmount;
+  }
+
+  function logBetInfo(betAmount, currentBalance, totalProfit) {
+    const signProfit = totalProfit >= 0 ? "+" : "";
+    console.log(
+      `Bet: ${fmt8(betAmount)} | Balance: ${fmt8(currentBalance)} | Total Profit: ${signProfit}${fmt8(totalProfit)}`
+    );
+  }
+
+  async function initializeBotState(gen) {
+    const currentBal = await getUserBalance();
+    if (currentBal === null) {
+      console.error(
+        `[System] Failed to fetch initial balance for '${String(CONFIG.currency).toUpperCase()}' from WolfBet API.`
+      );
+      if (gen === runGeneration) {
+        stopBotInternal(false);
+      }
+      return false;
+    }
+
+    const currentBalF = safeFloat(currentBal, 0.0);
+
+    if (activeClientSeed) {
+      await setClientSeed(activeClientSeed);
+    }
+
+    const masterState = loadMasterState();
+    if (masterState && "trueOriginalBalance" in masterState) {
+      trueOriginalBalance = safeFloat(masterState.trueOriginalBalance, currentBalF);
+    } else {
+      trueOriginalBalance = currentBalF;
+      saveMasterState(trueOriginalBalance);
+    }
+
+    const savedState = loadState();
+
+    startingPocketChange = currentBalF;
+    walletStash = currentBalF;
+
+    const calculatedTiny = startingPocketChange / 1000.0;
+    tinyPeanutSize = savedState ? safeFloat(savedState.tinyPeanutSize, calculatedTiny) : calculatedTiny;
+    backupPeanut = savedState ? safeFloat(savedState.backupPeanut, tinyPeanutSize) : tinyPeanutSize;
+    tenPeanuts = savedState ? safeFloat(savedState.tenPeanuts, tinyPeanutSize * 10.0) : tinyPeanutSize * 10.0;
+
+    previousWalletState = savedState ? safeFloat(savedState.previousWalletState, walletStash) : walletStash;
+    currentWagerAmount = clampMinBet(
+      savedState ? safeFloat(savedState.currentWagerAmount, backupPeanut) : backupPeanut
+    );
+    previousWagerAmount = clampMinBet(
+      savedState ? safeFloat(savedState.previousWagerAmount, currentWagerAmount) : currentWagerAmount
+    );
+
+    const defaultChk = walletStash;
+    const chkCalc = floorToStep(defaultChk, tinyPeanutSize * 10.0);
+    checkpointJuice = savedState ? safeFloat(savedState.checkpointJuice, chkCalc) : chkCalc;
+    wobbleFactor = savedState ? safeFloat(savedState.wobbleFactor, 1.0) : 1.0;
+    safetyCheckpoint = savedState ? safeFloat(savedState.safetyCheckpoint, chkCalc) : chkCalc;
+    safetyCheckpointtwo = savedState ? safeFloat(savedState.safetyCheckpointtwo, 1e36) : 1e36;
+
+    lastObservedBalance = currentBalF;
+    forker = savedState ? safeFloat(savedState.forker, currentBalF) : currentBalF;
+    lastObserved = savedState ? safeFloat(savedState.last_observed, currentBalF) : currentBalF;
+    bob = savedState ? safeFloat(savedState.bob, 0.0) : 0.0;
+    lastBalanceChangeTime = Date.now() / 1000;
+
+    const totalProfitInit = walletStash - trueOriginalBalance;
+    const signInit = totalProfitInit >= 0 ? "+" : "";
+    console.log(
+      `[System] Connected to WolfBet! Balance: ${fmt8(walletStash)} ${String(CONFIG.currency).toUpperCase()} | Master Original: ${fmt8(trueOriginalBalance)} | Total Profit: ${signInit}${fmt8(totalProfitInit)}`
+    );
+    return true;
+  }
+
+  async function placeDiceBet(amount) {
+    const safeAmount = clampMinBet(amount);
+    const betPayload = {
+      currency: String(CONFIG.currency).toLowerCase(),
+      game: "dice",
+      amount: fmt8(safeAmount),
+      rule: "under",
+      multiplier: "2",
+      bet_value: "49.5",
+    };
+
+    previousWagerAmount = safeAmount;
+    const betResponse = await apiRequest("bet/place", "POST", betPayload);
+    if (!betResponse || betResponse.__rateLimited) {
+      return false;
+    }
+
+    totalBetsPlaced += 1;
+
+    const parsedBal = extractBalanceFromBetResponse(betResponse);
+    if (parsedBal !== null) {
+      walletStash = safeFloat(parsedBal, walletStash);
+      lastObservedBalance = walletStash;
+      lastBalanceChangeTime = Date.now() / 1000;
+      saveState(false);
+    } else {
+      const balCheck = await getUserBalance();
+      if (balCheck !== null) {
+        walletStash = safeFloat(balCheck, walletStash);
+        lastObservedBalance = walletStash;
+        lastBalanceChangeTime = Date.now() / 1000;
+        saveState(false);
+      }
+    }
+    return true;
+  }
+
+  async function watchdogLoop(gen) {
+    while (isRunning && gen === runGeneration) {
+      await sleep(CONFIG.watchdogIntervalMs);
+      if (!isRunning || gen !== runGeneration || isPlacingBet) continue;
+
+      const nowSec = Date.now() / 1000;
+      if (nowSec - lastBalanceChangeTime > CONFIG.watchdogThresholdSec) {
+        loadState();
+        const balCheck = await getUserBalance();
+        if (balCheck !== null && isRunning && gen === runGeneration && !isPlacingBet) {
+          const balFloat = safeFloat(balCheck, walletStash);
+          if (!isClose(balFloat, walletStash, 1e-9)) {
+            walletStash = balFloat;
+            lastObservedBalance = walletStash;
+            lastBalanceChangeTime = Date.now() / 1000;
+            console.log(`[Watchdog] Balance updated: ${fmt8(walletStash)}`);
+          } else {
+            lastBalanceChangeTime = Date.now() / 1000;
+          }
+        }
+      }
+    }
+  }
+
+  async function runBettingLoop(gen) {
+    if (CONFIG.initialClientSeed && CONFIG.initialClientSeed.trim()) {
+      activeClientSeed = CONFIG.initialClientSeed.trim();
+    } else if (!activeClientSeed) {
+      activeClientSeed = generateRandomSeed();
+      console.log(`[Provably Fair] Generated initial random client seed: ${activeClientSeed}`);
+    }
+
+    const ok = await initializeBotState(gen);
+    if (!ok || !isRunning || gen !== runGeneration) return;
+
+    watchdogLoop(gen);
+
+    const intervalMs = getCycleIntervalMs();
+    console.log(
+      `[System] Entering high-speed loop targeting ${CONFIG.targetBetsPerSec} bets/sec (~${intervalMs.toFixed(1)}ms interval)...`
+    );
+
+    while (isRunning && gen === runGeneration) {
+      const cycleStart = performance.now();
+
+      if (walletStash >= CONFIG.targetBalance) {
+        const totalProfit = walletStash - trueOriginalBalance;
+        const signFinal = totalProfit >= 0 ? "+" : "";
+        console.log(
+          `\n[System] TARGET REACHED (${fmt8(walletStash)}). Total Cumulative Profit: ${signFinal}${fmt8(totalProfit)}. Halting.`
+        );
+        clearSavedStates(false);
+        stopBotInternal(false);
+        break;
+      }
+
+      isPlacingBet = true;
+      let placedOk = false;
+      try {
+        if (
+          CONFIG.autoRotateInterval > 0 &&
+          totalBetsPlaced > 0 &&
+          totalBetsPlaced % CONFIG.autoRotateInterval === 0
+        ) {
+          const randSeed = generateRandomSeed();
+          console.log(
+            `\n[Auto-Rotate] Reached ${totalBetsPlaced} bets. Generating new random seed...`
+          );
+          await setClientSeed(randSeed);
+        }
+
+        const computedNextBet = await calculateNextProgressionStep(previousWagerAmount, gen);
+        if (!isRunning || gen !== runGeneration) break;
+        const totalProfit = walletStash - trueOriginalBalance;
+        logBetInfo(computedNextBet, walletStash, totalProfit);
+        placedOk = await placeDiceBet(computedNextBet);
+      } finally {
+        isPlacingBet = false;
+      }
+
+      if (!isRunning || gen !== runGeneration) break;
+
+      if (!placedOk) {
+        await sleep(200);
+        continue;
+      }
+
+      const elapsed = performance.now() - cycleStart;
+      const waitMs = Math.max(0, getCycleIntervalMs() - elapsed);
+      if (waitMs > 0 && isRunning && gen === runGeneration) {
+        await sleep(waitMs);
+      }
+    }
+  }
+
+  function startBotInternal() {
+    if (isRunning) {
+      console.log("[System] Bot is already running.");
+      return;
+    }
+    promptForStartupInputs();
+    runGeneration += 1;
+    const gen = runGeneration;
+    isRunning = true;
+    syncToggleButtonUI();
+    console.log("\n[System] Bot started.");
+    runBettingLoop(gen);
+  }
+
+  function stopBotInternal(shouldSave = true) {
+    if (shouldSave) {
+      saveState(true);
+    }
+    isRunning = false;
+    runGeneration += 1;
+    syncToggleButtonUI();
+    console.log("\n[System] Bot stopped.");
+  }
+
+  window.startWolfBot = () => {
+    startBotInternal();
+  };
+
+  window.stopWolfBot = () => {
+    stopBotInternal(true);
+  };
+
+  window.setRate = (betsPerSec) => {
+    const n = Number(betsPerSec);
+    if (!Number.isFinite(n) || n <= 0) return;
+    CONFIG.targetBetsPerSec = n;
+    console.log(
+      `[System] Target rate set to ${CONFIG.targetBetsPerSec} bets/sec (~${getCycleIntervalMs().toFixed(1)}ms interval).`
+    );
+  };
+
+  window.setBearerToken = (token) => {
+    CONFIG.apiToken = String(token || "").trim().replace(/^Bearer\s+/i, "").trim();
+    console.log(
+      CONFIG.apiToken
+        ? "[System] Bearer token updated."
+        : "[System] Bearer token cleared."
+    );
+  };
+
+  window.setCurrency = (coin) => {
+    const cleaned = String(coin || "").trim().toLowerCase();
+    if (!cleaned) return;
+    CONFIG.currency = cleaned;
+    console.log(`[System] Currency set to: ${CONFIG.currency.toUpperCase()}`);
+  };
+
+  window.rotateSeedNow = async (customSeed = "") => {
+    const nextSeed = customSeed && customSeed.trim() ? customSeed.trim() : generateRandomSeed();
+    const ok = await setClientSeed(nextSeed);
+    if (ok) activeClientSeed = nextSeed;
+  };
+
+  window.deleteStateFiles = () => {
+    clearSavedStates(true);
+  };
+
+  mountControlButtons();
+  console.log("=== SnowyBot WolfBet DevConsole Edition ===");
+  console.log(
+    'Helpers: startWolfBot() | stopWolfBot() | setBearerToken("...") | setCurrency("btc") | setRate(15) | rotateSeedNow() | deleteStateFiles()'
+  );
+  startBotInternal();
+})();
