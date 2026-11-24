@@ -439,12 +439,12 @@ class SnowyBotWindow(QMainWindow):
         walletStash = float(current_bal)
 
         
-        calculated_tiny = floor_sigfig(startingPocketChange)
+        calculated_tiny = float(floor_sigfig(startingPocketChange))
 
         tinyPeanutSize = (
-            float(savedState.get("tinyPeanutSize", calculated_tiny))
+            float(savedState.get("tinyPeanutSize", float(calculated_tiny)))
             if savedState
-            else calculated_tiny
+            else float(calculated_tiny)
         )
 
 
