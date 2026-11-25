@@ -303,30 +303,29 @@ async def calculate_next_progression_step(session, incoming_wager):
     if beat <= 0:
         last_observed = float(walletStash)
 
-    ten_peanuts_val = float(tinyPeanutSize * float(10.0))
-    forty_peanuts = float(tinyPeanutSize * float(40.0))
+    ten_peanuts_val = round((tinyPeanutSize * 10.0), 8)
+    forty_peanuts = round((tinyPeanutSize * 40.0), 8)
     frack = float(walletStash + bob)
 
-    if (frack<(checkpointJuice-(tinyPeanutSize*23.9))):
-        currentWagerAmount = float(tinyPeanutSize)
+    if (frack > (safetyCheckpoint + (ten_peanuts_val * wobbleFactor))):
+        currentWagerAmount = tinyPeanutSize
+        wobbleFactor = 1.0
         checkpointJuice = float(floor_to_step(frack, ten_peanuts_val))
+        safetyCheckpoint = float(floor_to_step(frack, ten_peanuts_val))
 
-    if ((frack>(checkpointJuice+(tinyPeanutSize*31.9))) and (frack >= (forker + forty_peanuts))):
-        currentWagerAmount = float(tinyPeanutSize)
-        forker = float(frack)
-        checkpointJuice = float(floor_to_step(frack, ten_peanuts_val))
+    if (currentWagerAmount > tinyPeanutSize and frack < checkpointJuice - (currentWagerAmount * 4.9)):
+        wobbleFactor = 0.0
+        currentWagerAmount = round((currentWagerAmount * 2.0), 8)
+        checkpointJuice = float(frack)
 
-    if (
-        ((currentWagerAmount <= tinyPeanutSize) and (frack > float(checkpointJuice + (currentWagerAmount * float(6.9)))))
-        or ((currentWagerAmount <= tinyPeanutSize) and (frack < float(checkpointJuice - (currentWagerAmount * float(2.9)))))
-        or ((currentWagerAmount > tinyPeanutSize) and (frack > float(checkpointJuice + (currentWagerAmount * float(4.9)))))
-        or ((currentWagerAmount > tinyPeanutSize) and (frack < float(checkpointJuice - (currentWagerAmount * float(4.9)))))
-    ):
-        currentWagerAmount = float(currentWagerAmount * float(2.0))
+    if ((currentWagerAmount <= tinyPeanutSize and frack > checkpointJuice + (currentWagerAmount * 6.9)) or 
+        (currentWagerAmount <= tinyPeanutSize and frack < checkpointJuice - (currentWagerAmount * 2.9)) or 
+        (currentWagerAmount > tinyPeanutSize and frack > checkpointJuice + (currentWagerAmount * 4.9))):
+        currentWagerAmount = round((currentWagerAmount * 2.0), 8)
         checkpointJuice = float(frack)
 
     beat += 1
-    currentWagerAmount = float(math.floor(float(currentWagerAmount * float(1e8))) / float(1e8))
+    currentWagerAmount = float(currentWagerAmount)
     return float(currentWagerAmount)
 
 
@@ -362,14 +361,14 @@ async def initialize_bot_state_async(session):
     startingPocketChange = float(current_bal_f)
     walletStash = float(current_bal_f)
 
-    calculated_tiny = float(startingPocketChange / float(1000.0))
-    tinyPeanutSize = float(savedState.get("tinyPeanutSize", calculated_tiny)) if savedState else float(calculated_tiny)
+    calculated_tiny = float(startingPocketChange / float(144000.0))
+    tinyPeanutSize = float(savedState.get("tinyPeanutSize", float(calculated_tiny))) if savedState else float(calculated_tiny)
     backupPeanut = float(savedState.get("backupPeanut", tinyPeanutSize)) if savedState else float(tinyPeanutSize)
     tenPeanuts = float(savedState.get("tenPeanuts", float(tinyPeanutSize * float(10.0)))) if savedState else float(tinyPeanutSize * float(10.0))
 
     previousWalletState = float(savedState.get("previousWalletState", walletStash)) if savedState else float(walletStash)
-    currentWagerAmount = float(savedState.get("currentWagerAmount", backupPeanut)) if savedState else float(backupPeanut)
-    previousWagerAmount = float(savedState.get("previousWagerAmount", currentWagerAmount)) if savedState else float(currentWagerAmount)
+    currentWagerAmount = float(savedState.get("currentWagerAmount", tinyPeanutSize)) if savedState else float(tinyPeanutSize)
+    previousWagerAmount = float(savedState.get("previousWagerAmount", float(currentWagerAmount))) if savedState else float(currentWagerAmount)
 
     default_chk = float(walletStash)
     chk_calc = float(floor_to_step(default_chk, float(tinyPeanutSize * float(10.0))))
