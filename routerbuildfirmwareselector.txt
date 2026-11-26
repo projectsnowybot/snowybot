@@ -1,0 +1,145 @@
+# ==============================================================================
+# Zbtlink ZBT-WE826 (32M) Wired-Only Hardened First-Boot Script
+# (No SSH, No Wi-Fi, Root Password, MAC-Locked LuCI, PPPoE + raw /etc/nftables.conf)
+# ==============================================================================
+
+# 1. User Variables (EDIT ALL 5 VALUES BEFORE BUILDING)
+ROOT_PASS="your-router-password"
+ADMIN_MAC="00:11:22:33:44:55"
+ADMIN_IP="192.168.1.101"
+PPPOE_USER="your-pppoe-username"
+PPPOE_PASS="your-pppoe-password"
+
+# ZBT-WE826 32M (ramips/mt7620 DSA) Interface Names
+LAN_IF="br-lan"
+WAN_IF="pppoe-wan"
+
+# 2. Set OpenWrt Root / LuCI Web Login Password
+(echo "$ROOT_PASS"; sleep 1; echo "$ROOT_PASS") | passwd root
+
+# 3. Ensure Wi-Fi is completely disabled if any wireless config/drivers exist
+if [ -f /etc/config/wireless ]; then
+    uci set wireless.radio0.disabled='1' 2>/dev/null
+    uci set wireless.radio1.disabled='1' 2>/dev/null
+    uci commit wireless 2>/dev/null
+    wifi down 2>/dev/null
+fi
+
+# 4. Configure WAN Port for PPPoE
+uci set network.wan.proto='pppoe'
+uci set network.wan.username="$PPPOE_USER"
+uci set network.wan.password="$PPPOE_PASS"
+uci commit network
+
+# 5. Ensure Dropbear (SSH) is stopped and disabled if still present
+if [ -x /etc/init.d/dropbear ]; then
+    /etc/init.d/dropbear stop
+    /etc/init.d/dropbear disable
+fi
+
+# 6. Lock Admin MAC to Static DHCP Lease & Static ARP
+uci add dhcp host
+uci set dhcp.@host[-1].name='admin-pc'
+uci set dhcp.@host[-1].mac="$ADMIN_MAC"
+uci set dhcp.@host[-1].ip="$ADMIN_IP"
+uci set dhcp.@host[-1].dns='1'
+uci commit dhcp
+
+echo "$ADMIN_IP $ADMIN_MAC" >> /etc/ethers
+
+# 7. Disable OpenWrt's default fw4 service so /etc/nftables.conf has sole control
+/etc/init.d/firewall stop
+/etc/init.d/firewall disable
+
+# 8. Write raw /etc/nftables.conf
+cat << EOF > /etc/nftables.conf
+#!/usr/sbin/nft -f
+
+flush ruleset
+
+table inet filter {
+    chain input {
+        type filter hook input priority filter; policy drop;
+
+        # Allow loopback
+        iifname "lo" accept
+
+        # Allow established/related connections (conntrack) & drop invalid
+        ct state established,related accept
+        ct state invalid drop
+
+        # WAN (PPPoE) -> Device: Drop all unsolicited incoming traffic
+        iifname "$WAN_IF" drop
+
+        # LAN -> Device: Allow essential DHCP and DNS
+        iifname "$LAN_IF" udp dport { 53, 67, 68 } accept
+        iifname "$LAN_IF" tcp dport 53 accept
+
+        # LAN -> Device: Allow LuCI ONLY from exact Admin MAC + IP pair
+        iifname "$LAN_IF" ether saddr $ADMIN_MAC ip saddr $ADMIN_IP tcp dport { 80, 443 } accept
+
+        # Reject all other LAN -> Device traffic
+        iifname "$LAN_IF" reject
+    }
+
+    chain forward {
+        type filter hook forward priority filter; policy drop;
+
+        # PPPoE MSS Clamping (1492 MTU fix for MT7620A WAN -> PPPoE)
+        oifname "$WAN_IF" tcp flags syn tcp option maxseg size set rt mtu
+        iifname "$WAN_IF" tcp flags syn tcp option maxseg size set rt mtu
+
+        # Allow established/related return traffic (conntrack) & drop invalid
+        ct state established,related accept
+        ct state invalid drop
+
+        # WAN (PPPoE) -> LAN: Drop all unsolicited incoming traffic
+        iifname "$WAN_IF" oifname "$LAN_IF" drop
+
+        # LAN -> WAN (PPPoE): Strict egress allowlist (TCP 80/443, UDP 53/123 ONLY)
+        iifname "$LAN_IF" oifname "$WAN_IF" tcp dport { 80, 443 } accept
+        iifname "$LAN_IF" oifname "$WAN_IF" udp dport { 53, 123 } accept
+    }
+
+    chain output {
+        type filter hook output priority filter; policy accept;
+    }
+}
+
+table inet nat {
+    chain postrouting {
+        type nat hook postrouting priority srcnat; policy accept;
+
+        # Masquerade (NAT) outbound LAN traffic through PPPoE tunnel
+        oifname "$WAN_IF" masquerade
+    }
+}
+EOF
+
+# 9. Create procd init script to load /etc/nftables.conf on every boot
+cat << 'EOF' > /etc/init.d/custom-nftables
+#!/bin/sh /etc/rc.common
+
+START=19
+USE_PROCD=1
+
+start_service() {
+    /usr/sbin/nft -f /etc/nftables.conf
+}
+
+reload_service() {
+    /usr/sbin/nft -f /etc/nftables.conf
+}
+
+stop_service() {
+    /usr/sbin/nft flush ruleset
+}
+EOF
+
+chmod +x /etc/init.d/custom-nftables
+/etc/init.d/custom-nftables enable
+/etc/init.d/custom-nftables start
+/etc/init.d/network restart
+/etc/init.d/dnsmasq restart
+
+exit 0
