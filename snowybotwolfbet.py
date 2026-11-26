@@ -33,6 +33,7 @@ last_observed = float(0.0)
 beat = 0
 forker = float(0.0)
 targetBalance = float(144.0)
+toxic = 0
 
 last_observed_balance = float(0.0)
 last_balance_change_time = float(time.time())
@@ -265,7 +266,7 @@ def extract_balance_from_bet_response(bet_response):
 async def calculate_next_progression_step(session, incoming_wager):
     global walletStash, currentWagerAmount, bob, wobbleFactor, forker
     global checkpointJuice, safetyCheckpoint, tinyPeanutSize, backupPeanut
-    global safetyCheckpointtwo, last_observed, beat
+    global safetyCheckpointtwo, last_observed, beat, toxic
 
     currentWagerAmount = float(incoming_wager)
     checkpointJuice = float(checkpointJuice)
@@ -282,8 +283,8 @@ async def calculate_next_progression_step(session, incoming_wager):
         soulp = float(walletStash - last_observed)
         souly = float(last_observed - walletStash)
         matches_wager = (
-            math.isclose(float(soulp - currentWagerAmount), float(0.0), abs_tol=float(1e-8))
-            or math.isclose(float(soulp + currentWagerAmount), float(0.0), abs_tol=float(1e-8))
+            (((souly - (currentWagerAmount))>=(0-(0.00000001))) and ((souly - (currentWagerAmount))<=(0.00000001)))
+            or (((soulp - (currentWagerAmount*14))>=(0-(0.00000001))) and ((soulp - (currentWagerAmount*14))<=(0.00000001)))
         )
         if soulp > float(0.0):
             if matches_wager:
@@ -295,6 +296,7 @@ async def calculate_next_progression_step(session, incoming_wager):
         elif souly > float(0.0):
             if matches_wager:
                 last_observed = float(walletStash)
+                toxic = toxic+1
             else:
                 print(f"[Security] External balance change detected! Delta: {soulp:+.8f} | Expected Wager: {currentWagerAmount:.8f}. Halting.", flush=True)
                 save_state()
@@ -307,22 +309,13 @@ async def calculate_next_progression_step(session, incoming_wager):
     forty_peanuts = round((tinyPeanutSize * 40.0), 8)
     frack = float(walletStash + bob)
 
-    if (frack > (safetyCheckpoint + (ten_peanuts_val * wobbleFactor))):
+    if (frack > (safetyCheckpoint+forty_peanuts)):
         currentWagerAmount = tinyPeanutSize
-        wobbleFactor = 1.0
-        checkpointJuice = float(floor_to_step(frack, ten_peanuts_val))
         safetyCheckpoint = float(floor_to_step(frack, ten_peanuts_val))
 
-    if (currentWagerAmount > tinyPeanutSize and frack < checkpointJuice - (currentWagerAmount * 4.9)):
-        wobbleFactor = 0.0
+    if (toxic >= 19):
         currentWagerAmount = round((currentWagerAmount * 2.0), 8)
-        checkpointJuice = float(frack)
-
-    if ((currentWagerAmount <= tinyPeanutSize and frack > checkpointJuice + (currentWagerAmount * 6.9)) or 
-        (currentWagerAmount <= tinyPeanutSize and frack < checkpointJuice - (currentWagerAmount * 2.9)) or 
-        (currentWagerAmount > tinyPeanutSize and frack > checkpointJuice + (currentWagerAmount * 4.9))):
-        currentWagerAmount = round((currentWagerAmount * 2.0), 8)
-        checkpointJuice = float(frack)
+        toxic = 0
 
     beat += 1
     currentWagerAmount = float(currentWagerAmount)
@@ -426,8 +419,8 @@ async def run_betting_loop():
             "game": "dice",
             "amount": f"{float(computedNextBet):.8f}",
             "rule": "under",
-            "multiplier": "2",
-            "bet_value": "49.5"
+            "multiplier": "15",
+            "bet_value": "6.6"
         }
         previousWagerAmount = float(computedNextBet)
         bet_response = await api_request_async(session, "bet/place", method="POST", payload=bet_payload)
@@ -476,8 +469,8 @@ async def run_betting_loop():
                         "game": "dice",
                         "amount": f"{float(computedNextBet):.8f}",
                         "rule": "under",
-                        "multiplier": "2",
-                        "bet_value": "49.5"
+                        "multiplier": "15",
+                        "bet_value": "6.6"
                     }
 
                     previousWagerAmount = float(computedNextBet)
