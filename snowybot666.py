@@ -59,15 +59,6 @@ logged_in = False
 
 _active_window = None
 
-def floor_sigfig(val) -> float:
-    d = Decimal(str(val)) / Decimal('1440000')
-    if d <= 0:
-        return 0.0
-    exp = Decimal(f'1e{d.adjusted()}')
-    exact_sig = (d / exp).to_integral_value(rounding=ROUND_FLOOR) * exp
-    return float(exact_sig.quantize(Decimal('0.00000001'), rounding=ROUND_FLOOR))
-
-
 def load_state():
     if os.path.exists(STATE_FILE):
         try:
@@ -432,7 +423,7 @@ class SnowyBotWindow(QMainWindow):
         walletStash = float(current_bal)
 
         
-        calculated_tiny = float(floor_sigfig(startingPocketChange))
+        calculated_tiny = float(0.0000001)
 
         tinyPeanutSize = (
             float(savedState.get("tinyPeanutSize", float(calculated_tiny)))
